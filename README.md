@@ -24,11 +24,14 @@ Martina and me (Anne) decided that the best way to proceed is:
 #### Overview of functions for summary/reference tables
 - `referenceTableStudies()`: get a reference table with 1 line per individual. I.e. loop around all individulas and rbind result. Large table can be used e.g. to find duplicated individuals across studies, add colum with info why individuals got removed from analysis. (Anne)
 - `referenceTable_Indivuduals()`: gives one table per individual. This table can be used to filter out days with "to few" locations, etc. Saves table as "RefTableIndiv_MBid_indiv.loc.ident.RData", object contained is called `RefTableIndiv`. (Anne)
+- find duplicated individuals across studies - in the doings (Anne)
 
 #### Overview of functions for movement metrics
 - `cumulativeDist()`: calculates sum of all step lenghts per day, saves table per individual called "cumDistDay_MBid_indiv.name.RData", object contained is called `cumDistDay`. (Anne)
 - `maxNetDisp()`: calculates the maximum distance between any 2 locations per day, saves table per individual called "maxNetDisplDay_MBid_indiv.name.RData", object contained is called `maxNetDisplDay`. (Anne)
-- 
+- daily motion variance - in the doings (Anne)
+- daily UD (and size) - in the doings (Anne)
+
 
 ### GRACE VARIABLES
 
