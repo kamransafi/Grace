@@ -14,8 +14,8 @@ referenceTableStudies <-  function(moveObj){
     # deployment.id = moveObj@idData$deployment.id, ## check what happens when indiv has 2 several deployments ## probably dont need this info
     species= moveObj@idData$individual.taxon.canonical.name,
     tracking_duration_days = as.numeric(round(difftime(timestamps(moveObj)[n.locs(moveObj)], timestamps(moveObj)[1], "days"))),
-    tracking_start_date = timestamps(moveObj)[1],
-    tracking_end_date = timestamps(moveObj)[n.locs(moveObj)],
+    tracking_start_date = floor_date(timestamps(moveObj)[1], "day"), 
+    tracking_end_date = floor_date(timestamps(moveObj)[n.locs(moveObj)],"day"),
     GPSpts_total = n.locs(moveObj),
     median_timelag_mins = round(median(timeLag(moveObj, "mins")))
   )
