@@ -5,6 +5,10 @@ So that everyone is on the same page, I thought that maybe we could state some m
 -   data will be subsampled to 1 location per hour.
 -   data will be filtered excluding days that do not contain "enough" locations.
 
+### SCRIPTS - PROCESSING STEPS MOVEMENT DATA
+
+- 1_dataDownload.R
+
 ### METRIC FUNCTIONS
 
 Martina and me (Anne) decided that the best way to proceed is:
@@ -36,4 +40,4 @@ Martina and me (Anne) decided that the best way to proceed is:
 
 ### GRACE VARIABLES
 
-### ...
+### SCRIPTS - PROCESSING STEPS GRACE DATA

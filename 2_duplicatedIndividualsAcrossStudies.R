@@ -1,11 +1,33 @@
-## this script might have to be adjusted depending on the particular issues that come up when all studies are gathered
+#____________________________________
+## Individuals reference table: ####
+# Create a reference table, one entry per individual: ####
+
+library(plyr)
+library(doParallel)
+detectCores()
+doParallel::registerDoParallel(5)
+
+setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE")
+
+source("Grace_R_GitHub/Functions_For_Movement_Data/ReferenceTableStudies.R")
+
+fls <- list.files("MovementData/RawData", pattern="rds", full.names = T)
+
+llply(fls, referenceTableStudies, .parallel=T)
+
+
+
+
+refL <- lapply(allMv, referenceTableStudies)
+referenceTableStudies_ALL <- do.call("rbind",refL)
+saveRDS(referenceTableStudies_ALL, file="MovementData/referenceTableStudies_ALL_original.rds") ## just to making sure to have a copy that is untouch, as after this it will be modified and overwritten....  
+
+#___________________________________________________
+## Find duplicated individuals/tags across studies: ####
+# this script might have to be adjusted depending on the particular issues that come up when all studies are gathered
 
 library(DescTools) # for function %overlaps%
 
-source("~/Grace/Functions_For_Movement_Data/referenceTableStudies.R")
-refL <- lapply(allMv, referenceTableStudies)
-referenceTableStudies_ALL <- do.call("rbind",refL)
-save(file="~/Grace/NoPush/referenceTableStudies_ALL_original.RData",referenceTableStudies_ALL) ## just to making sure to have a copy that is untouch, as after this it will be modified and overwritten....  
 
 ## adding some columns for managing the table
 referenceTableStudies_ALL$rowID <- paste0("rID_",1:nrow(referenceTableStudies_ALL))
