@@ -14,7 +14,7 @@ lapply(splitBYstudy_l, function(tab){
   dfstudy <- readRDS(paste0("~/.../studyID_", tab$MBid,".rsd"))
   lapply(tab$individual.local.identifier, function(indiv){
     dfindiv <- dfstudy[dfstudy$individual.local.identifier==indiv]
-    dfindiv <- dfindiv[!duplicated(paste0(dfindiv$timestamp,dfindiv$deployment.id)),] ## removing duplicates
+    dfindiv <- dfindiv[!duplicated(dfindiv$timestamp),] ## removing duplicates
     mv <- move(dfindiv)
     
     saveRDS(mv,file=paste0(pathToFolder,tab$MBid,"_",indiv,".rds"))
