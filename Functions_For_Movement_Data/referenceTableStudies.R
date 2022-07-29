@@ -25,22 +25,27 @@ library('lubridate')
 # refL <- lapply(allMv, referenceTableStudies)
 # referenceTableStudies_ALL <- do.call("rbind",refL)
 
-referenceTableStudies <-  function(studyDf){ 
+# Individual.local.identifier is unique for each line. 
+# So for individuals which have multiple tags/deployments this information is kept in the same line and the multiple IDs separated by "|"
+
+referenceTableStudies <-  function(path_to_studyDf){ 
+  
+  studyDf <- readRDS(path_to_studyDf)
   
   indivList <- split(studyDf, studyDf$individual.local.identifier)
   
   studyTable <- as.data.frame(rbindlist(lapply(indivList, function(ind){
     rdf <- data.frame(
-      MBid = ind$study.id,
-      individual.local.identifier = ind$individual.local.identifier,
-      tag.local.identifier = ind$tag.local.identifier,
-      # deployment.id = moveObj@idData$deployment.id, ## check what happens when indiv has 2 several deployments ## probably dont need this info
-      species = ind$individual.taxon.canonical.name,
+      MBid = ind$study.id[1],
+      individual.local.identifier = unique(ind$individual.local.identifier),
+      tag.local.identifier = paste(unique(ind$tag.local.identifier), collapse="|"),
+      deployment.id = paste(unique(ind$deployment.id), collapse="|"),
+      species = unique(ind$individual.taxon.canonical.name),
       tracking_duration_days = as.numeric(round(difftime(ind$timestamp[nrow(ind)], ind$timestamp[1], "days"))),
       tracking_start_date = floor_date(ind$timestamp[1], "day"), 
       tracking_end_date = floor_date(ind$timestamp[nrow(ind)],"day"),
       GPSpts_total = nrow(ind),
-      median_timelag_mins = round(median(difftime(ind$timestamp[-1], ind$timestamp[-nrow(ind)], "mins")))
+      median_timelag_mins = as.numeric(round(median(difftime(ind$timestamp[-1], ind$timestamp[-nrow(ind)], "mins"))))
     )
     return(rdf)
   })))

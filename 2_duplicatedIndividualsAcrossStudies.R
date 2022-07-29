@@ -2,6 +2,7 @@
 ## Individuals reference table: ####
 # Create a reference table, one entry per individual: ####
 
+library(data.table)
 library(plyr)
 library(doParallel)
 detectCores()
@@ -9,17 +10,12 @@ doParallel::registerDoParallel(5)
 
 setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE")
 
-source("Grace_R_GitHub/Functions_For_Movement_Data/ReferenceTableStudies.R")
+source("Grace_R_GitHub/Functions_For_Movement_Data/referenceTableStudies.R")
 
 fls <- list.files("MovementData/RawData", pattern="rds", full.names = T)
 
-llply(fls, referenceTableStudies, .parallel=T)
+referenceTableStudies_ALL <- as.data.frame(rbindlist(llply(fls, referenceTableStudies, .parallel=T)))
 
-
-
-
-refL <- lapply(allMv, referenceTableStudies)
-referenceTableStudies_ALL <- do.call("rbind",refL)
 saveRDS(referenceTableStudies_ALL, file="MovementData/referenceTableStudies_ALL_original.rds") ## just to making sure to have a copy that is untouch, as after this it will be modified and overwritten....  
 
 #___________________________________________________

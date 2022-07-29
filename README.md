@@ -7,7 +7,11 @@ So that everyone is on the same page, I thought that maybe we could state some m
 
 ### SCRIPTS - PROCESSING STEPS MOVEMENT DATA
 
-- 1_dataDownload.R
+-   `1_dataDownload.R`: In this script we browse Movebank from the TeamWikelski account and excluded studies that are "test" or taht do not contain GPS data. On July 29th this list contains 706 studies. The script goes through each individual in each study, downloads the GPS data, removes duplicated locations (duplicated across time, lat and long), rbind all individuals and saves locally one table per study in .rds format.
+
+-   `2_duplicatedIndividualsAcrossStudies.R`: This script sources the function `referenceTableStudies.R`. We create and save locally a table with one entry per individual that summarises information such as individual, tag and deployment IDs, start and end of the tracking, duration, number of locations etc. Note that multiple deployments of the same individual are not treated separately but as one unit. Gaps between consecutive deployments will be dealt with later in the script as all metrics are calculated per day. The rest of the script looks for duplicated individuals across studies ... (to be continued)
+
+-   `3_dataSubsampling_createMoveObject.R`:
 
 ### METRIC FUNCTIONS
 
@@ -26,13 +30,20 @@ Martina and me (Anne) decided that the best way to proceed is:
 -   so we are all doing the same thing, make sure that you are actually selecting the locations for a day corresponding to a date. E.g.: in `lubridate::round_date()` the changing point is not 12AM, but 12PM. So one "day" goes from 12PM to 11:59AM of the next date. Using `lubridate::floor_date()` the actual date is a "day".
 
 #### Overview of functions for summary/reference tables
-- `referenceTableStudies()`: get a reference table with 1 line per individual. I.e. loop around all individulas and rbind result. Large table can be used e.g. to find duplicated individuals across studies, add colum with info why individuals got removed from analysis. (Anne)
-- `referenceTable_Indivuduals()`: gives one table per individual. This table can be used to filter out days with "to few" locations, etc. Saves table as "RefTableIndiv_MBid_indiv.loc.ident.RData", object contained is called `RefTableIndiv`. (Anne)
+
+- `referenceTableStudies()`: get a reference table with 1 line per individual. I.e. loop around all individulas and rbind result. Large table can be used e.g. to find duplicated individuals across studies, add colum with info why individuals got removed from analysis. Individuals with multiple tags/deployments are kept in one lines and the different tag IDs/deployment IDs separated by a "|". Gaps between deployments will be dealt with and filtered out at a later stage as all metrics will be calculated per day and associated to the number of locations. (Anne)
+
+- `referenceTable_Individuals()`: gives one table per individual. This table can be used to filter out days with "to few" locations, etc. Saves table as "RefTableIndiv_MBid_indiv.loc.ident.RData", object contained is called `RefTableIndiv`. (Anne)
+
 - `duplicatedIndividualsAcrossStudies.R`: not a function, but a script that aims to find individuals that are duplicated in two or more studies, and then keeping the one with most gps fixes. (Anne)
 
+
 #### Overview of functions for movement metrics
+
 - `cumulativeDist()`: calculates sum of all step lenghts per day, saves table per individual called "cumDistDay_MBid_indiv.name.RData", object contained is called `cumDistDay`. (Anne)
+
 - `maxNetDisp()`: calculates the maximum distance between any 2 locations per day, saves table per individual called "maxNetDisplDay_MBid_indiv.name.RData", object contained is called `maxNetDisplDay`. (Anne)
+
 - cumDistDay/maxNetDisplDay ~ 1 => migratory day, cut-off value to be determined, not a function, just so idea does not get lost. (Anne & Martina)
 - daily motion variance - in the doings (Anne)
 - daily UD (and size) - in the doings (Anne)

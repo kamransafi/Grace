@@ -15,12 +15,15 @@ studsT <- studsT[which(studsT$i_am_collaborator=="true" | studsT$i_am_owner=="tr
 studsT <- studsT[which(studsT$is_test == "false"),]
 studsT <- studsT[grep("GPS", studsT$sensor_type_ids),]
 
-write.csv(studsT, file="MovementData/availableWikelskiStudies_accessed26July2022.csv", row.names = F)
+write.csv(studsT, file="MovementData/availableWikelskiStudies_accessed29July2022.csv", row.names = F)
 
 # Define function to find errors in the list after the "try"
 is.error <- function(x) inherits(x, "try-error")
 # Create temporary folder to store the csv data downloaded using the system call
 tmpfld <- tempdir()
+
+# toDo <- which(!studsT$id %in% sapply(strsplit(list.files("MovementData/RawData"), "_"), "[", 2))
+# toDo <- studsT[toDo,]
 
 # Download data per individual so that we can already filter out individuals that don't have acc information
 # IMPORTANT: working in parallel doens't work for the download, use normal lapply
@@ -78,9 +81,6 @@ results[vapply(results, is.error, logical(1))]
 #manually accept licence agreements for these studies:
 (licenceToAgree <- studsT$name[101:300][vapply(results, is.error, logical(1))])
 toDo <- studsT[studsT$name %in% licenceToAgree,]
-
-# notDone <- which(!studsT$id[31:100] %in% sapply(strsplit(list.files("MovementData/RawData"), "_"), "[", 2))
-# toDo <- studsT[31:100,][notDone,]
 
 
 #_____________________________

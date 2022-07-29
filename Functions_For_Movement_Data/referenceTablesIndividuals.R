@@ -3,7 +3,7 @@ library('lubridate')
 
 ## this function gives one table per individual. This table can be used to filter out days with "to few" locations, etc
 ## output is "RefTableIndiv_MBid_indiv.loc.ident.RData", object saved is called "RefTableIndiv"
-referenceTable_Indivuduals <-  function(moveObj,pathToFolder){ 
+referenceTable_Individuals <-  function(moveObj,pathToFolder){ 
   
   rdfi <- data.frame(
     commonID = paste0(moveObj@idData$study.id,"_",namesIndiv(moveObj),"_",floor_date(timestamps(moveObj), "day")),
