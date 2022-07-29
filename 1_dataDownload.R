@@ -32,7 +32,7 @@ results <- lapply(1:nrow(toDo), function(i) try({
   print(paste0(stRow$id," - ",stRow$name))
   studyId <- as.numeric(stRow$id)
   # getting license terms of study
-  system(paste0('curl -v -u ', paste0(as.vector(credsT$headers),collapse=":"), ' -c ./cookies.txt -o ./license_terms.txt "https://www.movebank.org/movebank/service/direct-read?entity_type=event&study_id=', studyId, '"'))
+  system(paste0('curl -v -u ', paste0(as.vector(credsT$headers),collapse=":"), ' -c ./cookies.txt -o ',tmpfld,'/Movebank_license_terms.txt "https://www.movebank.org/movebank/service/direct-read?entity_type=event&study_id=', studyId, '"'))
   # download data accepting licence. After running this line once, we can use the regular move functions for download. --- CSV files name is the studyID. details about attributes, sensors, individuals, etc can/should be added
   system(paste0('curl -v -u ', paste0(as.vector(credsT$headers), collapse=":"), ' -b ./cookies.txt -o ',tmpfld,'/',paste0(studyId,".csv"),' "https://www.movebank.org/movebank/service/direct-read?entity_type=event&study_id=', studyId, '&license-md5=', md5sum("./license_terms.txt"), '"'))
   # Now the licence has been "accepted" and we can normally downloaad the rest of the information using the move functions
