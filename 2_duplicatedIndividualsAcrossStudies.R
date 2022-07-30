@@ -14,16 +14,16 @@ source("Grace_R_GitHub/Functions_For_Movement_Data/referenceTableStudies.R")
 
 fls <- list.files("MovementData/RawData", pattern="rds", full.names = T)
 
-referenceTableStudies_ALL <- as.data.frame(rbindlist(llply(fls, referenceTableStudies, .parallel=T)))
+referenceTableStudies_ALL <- as.data.frame(rbindlist(llply(fls[1:5], referenceTableStudies, .parallel=T)))
 
 saveRDS(referenceTableStudies_ALL, file="MovementData/referenceTableStudies_ALL_original.rds") ## just to making sure to have a copy that is untouch, as after this it will be modified and overwritten....  
+
 
 #___________________________________________________
 ## Find duplicated individuals/tags across studies: ####
 # this script might have to be adjusted depending on the particular issues that come up when all studies are gathered
 
 library(DescTools) # for function %overlaps%
-
 
 ## adding some columns for managing the table
 referenceTableStudies_ALL$rowID <- paste0("rID_",1:nrow(referenceTableStudies_ALL))
@@ -35,7 +35,7 @@ referenceTableStudies_ALL$Tag_Sps <- paste0(referenceTableStudies_ALL$tag.local.
 
 ## check duplicated indv-tag-sps
 # get table containing all rows of duplication
-dupliTab_ITS <- referenceTableStudies_ALL[referenceTableStudies_ALL$Ind_Tag_Sps%in%referenceTableStudies_ALL$Ind_Tag_Sps[duplicated(referenceTableStudies_ALL$Ind_Tag_Sps)],] 
+dupliTab_ITS <- referenceTableStudies_ALL[referenceTableStudies_ALL$Ind_Tag_Sps %in% referenceTableStudies_ALL$Ind_Tag_Sps[duplicated(referenceTableStudies_ALL$Ind_Tag_Sps)],] 
 
 print(paste0(nrow(dupliTab_ITS), " rows duplicated by indiv, tag and sps"))
 if(nrow(dupliTab_ITS)>1){
@@ -55,22 +55,22 @@ if(nrow(dupliTab_ITS)>1){
       }
     }
     # not overlapping duplicated tag_sps in time: probably same(or different) study deployed tag on different individual
-    overlaping <- combiMatrix[combiMatrix$overlap==TRUE,] 
+    overlapping <- combiMatrix[combiMatrix$overlap==TRUE,] 
     # accounting for table having multiple rows, e.g. 2 individuals got tagged with same tag, both are duplicated
-    exclude_l <- lapply(1:(nrow(overlaping)),function(i){
-      x$rowID[which.min(x[x$rowID%in%overlaping[i,c("id1","id2")],"GPSpts_total"])] # if same number of gps pts, 1st one gets declared as min
+    exclude_l <- lapply(1:(nrow(overlapping)),function(i){
+      x$rowID[which.min(x[x$rowID %in% overlapping[i,c("id1","id2")],"GPSpts_total"])] # if same number of gps pts, 1st one gets declared as min
     })
     exclude <- unlist(exclude_l)
     return(exclude)
   })
   toExclude <- unlist(toExclude_l)
-  referenceTableStudies_ALL$excluded[referenceTableStudies_ALL$rowID%in%toExclude] <- "yes_duplicated_Ind_Tag_Sps"
+  referenceTableStudies_ALL$excluded[referenceTableStudies_ALL$rowID %in% toExclude] <- "yes_duplicated_Ind_Tag_Sps"
 }
 
 
 ## check duplicated by tag-sps
 # get table containing all rows of duplication
-dupliTab_TS <- referenceTableStudies_ALL[referenceTableStudies_ALL$Tag_Sps%in%referenceTableStudies_ALL$Tag_Sps[duplicated(referenceTableStudies_ALL$Tag_Sps)],] 
+dupliTab_TS <- referenceTableStudies_ALL[referenceTableStudies_ALL$Tag_Sps %in% referenceTableStudies_ALL$Tag_Sps[duplicated(referenceTableStudies_ALL$Tag_Sps)],] 
 dupliTab_TS <- dupliTab_TS[dupliTab_TS$excluded=="no",] ## removing those that have been already identified by duplicated_Ind_Tag_Sps
 
 print(paste0(nrow(dupliTab_TS), " rows duplicated by tag and sps"))
@@ -91,20 +91,30 @@ if(nrow(dupliTab_TS)>1){
       }
     }
     # not overlapping duplicated tag_sps in time: probably same(or different) study deployed tag on different individual
-    overlaping <- combiMatrix[combiMatrix$overlap==TRUE,] 
+    overlapping <- combiMatrix[combiMatrix$overlap==TRUE,] 
     # accounting for table having multiple rows, e.g. 2 individuals got tagged with same tag, both are duplicated
-    exclude_l <- lapply(1:(nrow(overlaping)),function(i){ 
-      x$rowID[which.min(x[x$rowID%in%overlaping[i,c("id1","id2")],"GPSpts_total"])] # if same number of gps pts, 1st one gets declared as min
+    exclude_l <- lapply(1:(nrow(overlapping)),function(i){ 
+      x$rowID[which.min(x[x$rowID %in% overlapping[i,c("id1","id2")],"GPSpts_total"])] # if same number of gps pts, 1st one gets declared as min
     })
     exclude <- unlist(exclude_l)
     return(exclude)
     
   })
   toExclude <- unlist(toExclude_l)
-  referenceTableStudies_ALL$excluded[referenceTableStudies_ALL$rowID%in%toExclude] <- "yes_duplicated_Tag_Sps"
+  referenceTableStudies_ALL$excluded[referenceTableStudies_ALL$rowID %in% toExclude] <- "yes_duplicated_Tag_Sps"
 }
 
-save(file="~/Grace/NoPush/referenceTableStudies_ALL.RData",referenceTableStudies_ALL)
+save(file="MovementData/referenceTableStudies_ALL_excludedColumn.RData",referenceTableStudies_ALL)
 
+#_____________________
+## Sanity checks ####
+# Plot the duplicated tags to make sure it's the same individual
 
+(dupTags <- as.character(referenceTableStudies_ALL$tag.local.identifier[referenceTableStudies_ALL$excluded != "no"]))
+gpsSub <- gps[gps$tag.local.identifier == "15",]
+gps_l <- split(gpsSub, as.character(gpsSub$individual.local.identifier))
+plot(location.lat~location.long, data=gps_l[[1]], col="red", type="l", 
+     xlim=c(min(gpsSub$location.long), max(gpsSub$location.long)), 
+     ylim=c(min(gpsSub$location.lat), max(gpsSub$location.lat)))
+lines(location.lat~location.long, data=gps_l[[2]], col="blue")
 

@@ -22,22 +22,22 @@ is.error <- function(x) inherits(x, "try-error")
 # Create temporary folder to store the csv data downloaded using the system call
 tmpfld <- tempdir()
 
-# toDo <- which(!studsT$id %in% sapply(strsplit(list.files("MovementData/RawData"), "_"), "[", 2))
-# toDo <- studsT[toDo,]
+toDo <- which(!studsT$id %in% sapply(strsplit(list.files("MovementData/RawData"), "_"), "[", 2))
+toDo <- studsT[toDo,]
 
 # Download data per individual so that we can already filter out individuals that don't have acc information
 # IMPORTANT: working in parallel doens't work for the download, use normal lapply
 #results <- lapply(101:300, function(i) try({
 #results <- lapply(1:nrow(studsT), function(i) try({
   #stRow <- studsT[i,]
-results <- lapply(1:nrow(toDo), function(i) try({
-  stRow <- toDo[i,]
+results <- lapply(1:nrow(toDoStill), function(i) try({
+  stRow <- toDoStill[i,]
   print(paste0(stRow$id," - ",stRow$name))
   studyId <- as.numeric(stRow$id)
   # getting license terms of study
   system(paste0('curl -v -u ', paste0(as.vector(credsT$headers),collapse=":"), ' -c ./cookies.txt -o ',tmpfld,'/Movebank_license_terms.txt "https://www.movebank.org/movebank/service/direct-read?entity_type=event&study_id=', studyId, '"'))
   # download data accepting licence. After running this line once, we can use the regular move functions for download. --- CSV files name is the studyID. details about attributes, sensors, individuals, etc can/should be added
-  system(paste0('curl -v -u ', paste0(as.vector(credsT$headers), collapse=":"), ' -b ./cookies.txt -o ',tmpfld,'/',paste0(studyId,".csv"),' "https://www.movebank.org/movebank/service/direct-read?entity_type=event&study_id=', studyId, '&license-md5=', md5sum("./license_terms.txt"), '"'))
+  system(paste0('curl -v -u ', paste0(as.vector(credsT$headers), collapse=":"), ' -b ./cookies.txt -o ',tmpfld,'/',paste0(studyId,".csv"),' "https://www.movebank.org/movebank/service/direct-read?entity_type=event&study_id=', studyId, '&license-md5=', md5sum(paste0(tmpfld,'/Movebank_license_terms.txt')), '"'))
   # Now the licence has been "accepted" and we can normally downloaad the rest of the information using the move functions
   allInds <- getMovebank("individual", login=credsT, study_id=studyId)
   # Exclude individuals that have no GPS data
@@ -79,8 +79,8 @@ results
 names(results) <- seq_along(results)
 results[vapply(results, is.error, logical(1))]
 #manually accept licence agreements for these studies:
-(licenceToAgree <- studsT$name[101:300][vapply(results, is.error, logical(1))])
-toDo <- studsT[studsT$name %in% licenceToAgree,]
+(licenceToAgree <- toDo$name[vapply(results, is.error, logical(1))])
+toDoStill <- toDo[toDo$name %in% licenceToAgree,]
 
 
 #_____________________________
