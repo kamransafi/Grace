@@ -5,7 +5,9 @@ library(stars)
 library(data.table)
 credsT <- movebankLogin() #movebank credentials
 studsT <- getMovebank("study", credsT)
-studsT <- studsT[studsT$i_am_collaborator=="true" | studsT$i_am_owner=="true" | studsT$i_have_download_access=="true",]
+studsT <- studsT[which(studsT$i_am_collaborator=="true" | studsT$i_am_owner=="true" | studsT$i_have_download_access=="true"),]
+studsT <- studsT[which(studsT$is_test == "false"),]
+studsT <- studsT[grep("GPS", studsT$sensor_type_ids),]
 
 studiesMB <- list()
 success <- 0

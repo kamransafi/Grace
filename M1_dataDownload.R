@@ -9,7 +9,7 @@ library(move)
 setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE")
 dir.create("MovementData/RawData")
 
-credsT <- movebankLogin("TeamWikelski", "e8kF*sdB") #movebank credentials
+credsT <- movebankLogin() #movebank credentials
 studsT <- getMovebank("study", credsT)
 studsT <- studsT[which(studsT$i_am_collaborator=="true" | studsT$i_am_owner=="true" | studsT$i_have_download_access=="true"),]
 studsT <- studsT[which(studsT$is_test == "false"),]
@@ -27,11 +27,10 @@ toDo <- studsT[toDo,]
 
 # Download data per individual so that we can already filter out individuals that don't have acc information
 # IMPORTANT: working in parallel doens't work for the download, use normal lapply
-#results <- lapply(101:300, function(i) try({
 #results <- lapply(1:nrow(studsT), function(i) try({
   #stRow <- studsT[i,]
-results <- lapply(1:nrow(toDoStill), function(i) try({
-  stRow <- toDoStill[i,]
+results <- lapply(1:nrow(toDo), function(i) try({
+  stRow <- toDo[i,]
   print(paste0(stRow$id," - ",stRow$name))
   studyId <- as.numeric(stRow$id)
   # getting license terms of study
@@ -50,7 +49,7 @@ results <- lapply(1:nrow(toDoStill), function(i) try({
     indNames <- as.character(allInds$local_identifier[!allInds$local_identifier %in% c(NA,"")])
     gps_ls <- lapply(indNames, function(ind)try({
       print(ind)
-      # Download gps and check if data are from ornitela or eobs tags
+      # Download gps data per individual
       gps <- getMovebankLocationData(study=studyId, animalName=ind, sensorID="GPS", login=credsT, underscoreToDots=T)
       # Remove NAs from timestamp and coords
       gps <- gps[complete.cases(gps[,c("timestamp","location.long","location.lat")]),]
@@ -66,7 +65,7 @@ results <- lapply(1:nrow(toDoStill), function(i) try({
     gps_ls <- gps_ls[which(!sapply(gps_ls, is.null))]
     # Save data
     if(length(gps_ls)>0){
-      gpsDf <- as.data.frame(rbindlist(gps_ls))
+      gpsDf <- as.data.frame(rbindlist(gps_ls, fill=T))
       saveRDS(gpsDf, file=paste0("MovementData/RawData/studyId_",studyId,"_noDups_onlyGps.rds"))
     }
   }
@@ -78,29 +77,68 @@ table(vapply(results, is.error, logical(1)))
 results
 names(results) <- seq_along(results)
 results[vapply(results, is.error, logical(1))]
-#manually accept licence agreements for these studies:
-(licenceToAgree <- toDo$name[vapply(results, is.error, logical(1))])
-toDoStill <- toDo[toDo$name %in% licenceToAgree,]
+# Check studies that returned errors:
+# (gaveError <- toDo$name[vapply(results, is.error, logical(1))])
+# toDoStill <- toDo[toDo$name %in% gaveError,]
+
+didNotDownload <- toDo[c(7,18,23,24,26,38,39,40,44,45,58,63,65,69), c("id","name")]
+write.csv(didNotDownload, file="MovementData/studiesThatDidNotDownaloadViaAPI.csv", row.names=F)
+
+
+#____________________________________
+## Manually downloaded studies: ####
+# Some studies had to be downloaded manually as csv files. 
+# We now import them, format them the same way as the other studies, re-save them as .rds and delete the downloaded .csv file.
+
+fls <- list.files("MovementData/RawData", pattern=".csv", full.names = T)
+
+lapply(fls, function(f){
+  print(f)
+  studyId <- sapply(strsplit(f, "_|.csv"), "[", 2)
+  
+  gps <- read.csv(f, as.is=T)
+  gps$timestamp <- as.POSIXct(gps$timestamp, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+  gps$study.id <- studyId
+  
+  gps <- gps[complete.cases(gps[,c("timestamp","location.long","location.lat")]),]
+  if(nrow(gps)>0){
+    # Remove duplicates (it doesn't matter which as we only need time and coordinates)
+    dups <- duplicated(gps[,c("timestamp", "location.long", "location.lat")])
+    gps <- gps[!dups,]
+    if(nrow(gps)>0){
+      saveRDS(gps, file=paste0("MovementData/RawData/studyId_",studyId,"_noDups_onlyGps_manualDownload.rds"))
+      #unlink(f)
+    }}
+})
+
 
 
 #_____________________________
 ## Study summary table: ####
 # Create a summary table per study where we write which studies were downloaded, and how many of the available individuals were actually downloaded? 
 
-fls <- list.files("MovementData/RawData", pattern="rds", full.names = T)
+studsT <- read.csv("MovementData/availableWikelskiStudies_accessed29July2022.csv", as.is=T)
 
-studies_summTable <- as.data.frame(rbindlist(lapply(fls, function(f){
+didNotDownload <- read.csv("MovementData/studiesThatDidNotDownaloadViaAPI.csv", as.is=T)
+didNotDownload$studyDownloaded <- "missing individual id - re-assigned after manual download"
+didNotDownload$studyDownloaded[c(4,7,9,10,11,13)] <- "yes manually"
+
+fls <- list.files("MovementData/RawData", pattern="onlyGps.rds", full.names = T)
+studies_downloadTable <- as.data.frame(rbindlist(lapply(fls, function(f){
   gps <- readRDS(f)
   print(gps$study.id[1])
-  allInds <- getMovebank("individual", login=credsT, study_id=gps$study.id[1])
-  #print(paste0("Downloaded ",length(unique(gps$individual.local.identifier)),"/", nrow(allInds)," individuals."))
-  df <- data.frame(id=gps$study.id[1], downloadedIndividuals=length(unique(gps$individual.local.identifier)), 
-                   totalIndividuals=nrow(allInds), studyDownloaded="yes")
+  df <- data.frame(id=gps$study.id[1], 
+                   studyDownloaded = "yes from API",
+                   downloadedIndividuals=length(unique(gps$individual.local.identifier)), stringsAsFactors = F)
   return(df)
 })))
 
-studiesSub <- studsT[,c("id","name","contact_person_name","number_of_individuals")]
+downloadedStudies <- as.data.frame(rbindlist(list(didNotDownload[,c("id","studyDownloaded")], studies_downloadTable), fill=T))
 
-studies_summaryTable <- merge(studiesSub, studies_summTable, by="id", all.x=T)
-write.csv(studies_summaryTable, file="MovementData/studies_download_filteringSteps.csv", row.names = F)
+studies_summaryTable <- merge(studsT[,c("id","name","contact_person_name","number_of_individuals")], downloadedStudies, by="id", all.x=T)
+studies_summaryTable$studyDownloaded[is.na(studies_summaryTable$studyDownloaded)] <- "no - no individual with GPS data available"
+
+studies_summaryTable <- studies_summaryTable[order(studies_summaryTable$id),c("id","name","number_of_individuals","downloadedIndividuals","studyDownloaded","contact_person_name")]
+
+write.csv(studies_summaryTable, file="MovementData/studies_summaryTable_downloadOrNot.csv", row.names = F)
 

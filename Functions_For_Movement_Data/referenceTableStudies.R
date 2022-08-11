@@ -7,15 +7,26 @@ library('lubridate')
 
 referenceTableStudies <-  function(path_to_studyDf){ 
   
+  #print(path_to_studyDf)
   studyDf <- readRDS(path_to_studyDf)
   
+  if(all(is.na(studyDf$individual.local.identifier))==T
+     & all(is.na(studyDf$tag.local.identifier))==F){ # this is to account for when individual.local.identifier is missing
+    studyDf$individual.local.identifier <- studyDf$tag.local.identifier
+  }else if(all(is.na(studyDf$individual.local.identifier))==T
+              & all(is.na(studyDf$tag.local.identifier))==T){warning("This study has neither individual nor tag identifier, study excluded from this step.")}
   indivList <- split(studyDf, as.character(studyDf$individual.local.identifier))
   
   studyTable <- as.data.frame(rbindlist(lapply(indivList, function(ind){
     
+    if(all(is.na(ind$tag.local.identifier))==T){ # this is to account for when tag.local.identifier is missing
+      ind$tag.local.identifier <- ind$tag.id
+    }
     tagList <- split(ind, as.character(ind$tag.local.identifier))
+    
     indTable <- as.data.frame(rbindlist(lapply(tagList, function(tag){
       
+      tag <- tag[order(tag$timestamp),]
       rdf <- data.frame(
         MBid = ind$study.id[1],
         individual.local.identifier = unique(ind$individual.local.identifier),
