@@ -21,6 +21,7 @@ splitBYstudy_l <- split(includeStudiesTB, as.character(includeStudiesTB$MBid))
 ## creating moveObj per individual
 results <- sapply(splitBYstudy_l, function(tab)try({
   
+  #tab=splitBYstudy_l[["416289710"]] #416289710 559335125 47899041
   (f <- grep(unique(tab$MBid), studyFls, value=T))
   
   dfstudy <- readRDS(f)
@@ -39,12 +40,14 @@ results <- sapply(splitBYstudy_l, function(tab)try({
     # Create a track object (amt package)
     indivTrack <- make_track(tbl=dfindiv, .x=location.long, .y=location.lat, .t=timestamp, all_cols=T)
     # subsample to 1 location/hour and save
-    if(nrow(indivTrack)>0){
+    if(nrow(indivTrack)>1){
       indivTrack_1h <- track_resample(indivTrack, rate = hours(1), tolerance = minutes(15), start = 1)
       # Create move object per individual and save
       mv_1h <- as_move(indivTrack_1h)
+      if(nrow(mv_1h)>1){
       if(grepl("/", indiv)==T){indiv <- gsub("/","-",indiv)}
       saveRDS(mv_1h, file=paste0(pathToMO,unique(tab$MBid),"_",indiv,".rds"))
+      }
     }
   })
 }))

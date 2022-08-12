@@ -32,7 +32,7 @@ referenceTableStudies <-  function(path_to_studyDf){
         individual.local.identifier = unique(ind$individual.local.identifier),
         tag.local.identifier = unique(tag$tag.local.identifier),
         species = unique(ind$individual.taxon.canonical.name),
-        tracking_duration_days = as.numeric(round(difftime(tag$timestamp[nrow(tag)], tag$timestamp[1], "days"))),
+        tracking_duration_days = round(as.numeric(difftime(tag$timestamp[nrow(tag)], tag$timestamp[1], units="days")),2),
         tracking_start_date = tag$timestamp[1],  # Important to keep the full timestamp, as in the same day a tag can be removed from one individual and put on another one.
         tracking_end_date = tag$timestamp[nrow(tag)],
         GPSpts_total = nrow(tag),

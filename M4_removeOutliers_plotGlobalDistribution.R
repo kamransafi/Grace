@@ -26,10 +26,10 @@ fls_indivLs <- split(indivIds, studyIds)
 # table(unlist(results)) 
 
 
-# Remove outliers based on speed
-results <- lapply(fls_studyLs, function(fls)try({
+# Remove outliers based on speed fls_studyLs[251:500][93 177 205 240]
+results <- lapply(fls_studyLs[501:610], function(fls)try({
   
-  #fls=fls_studyLs[["1088836380"]] #18957668 14671003 1088836380
+  #fls=fls_studyLs[["180156318"]] #18957668 14671003 1088836380 180156318
   mLs <- lapply(fls, readRDS)
   #Assign crs because it is missing in all move objects
   mLs <- lapply(mLs, function(m){
@@ -39,17 +39,27 @@ results <- lapply(fls_studyLs, function(fls)try({
   grSpeed <- unlist(lapply(mLs, speed))
   qSpeed <- quantile(grSpeed, seq(0,1, 0.0005), na.rm=T)
   #plot(qSpeed)
-  # filter each individual based on the last quantile
+  
+  # Remove the last quantile, but if this is still > 50 m/s go to the last possible quantile that is <= 50 m/s
+  # In horizontal flight, swifts and now brazilian bats (Teague) are considered the fastest flyers with 110 and 160 km/h (44.4 m/s) https://en.wikipedia.org/wiki/Fastest_animals
+  # so we can set a threshold to 50 m/s?
+  maxQuant <- qSpeed["99.95%"]
+  if(maxQuant > 50){maxQuant <- max(qSpeed[qSpeed <= 50])}
+  
+  # Filter each individual based on the last quantile
   mLs_noOut <- lapply(mLs, function(m){
     
-    mSub <- m[which(c(NA,speed(m)) <= qSpeed["99.95%"])]
-    
+    mSub <- m    
+    while(any(speed(mSub) > maxQuant)==T){
+      mSub <- mSub[which(c(NA,speed(mSub)) < maxQuant)]
+    }
+
     indiv <- unique(m@idData$individual.local.identifier)
     if(grepl("/", indiv)==T){indiv <- gsub("/","-",indiv)}
     
     # png(paste0(fldOutliers,unique(m@idData$study.id),"_",indiv,".png"))
     # par(mfrow=c(1,2))
-    # plot(m, type="l", ylim=range(coordinates(mSub)[,2]), xlim=range(coordinates(mSub)[,1]))
+    # plot(m, type="l")#, ylim=range(coordinates(mSub)[,2]), xlim=range(coordinates(mSub)[,1]))
     # plot(mSub, type="l")
     # dev.off()
     
@@ -64,6 +74,9 @@ results <- lapply(fls_studyLs, function(fls)try({
 ## Check reasons for errors:
 is.error <- function(x) inherits(x, "try-error")
 table(vapply(results, is.error, logical(1)))
+# check which returned errors/messages and why
+names(results) <- seq_along(results)
+(err <- results[vapply(results, is.error, logical(1))])
 
 
 #____________________________________________
@@ -90,10 +103,10 @@ fls_indivLs <- split(indivIds, studyIds)
 
 
 # Select a subset of studies to plot
-studySub <- fls_studyLs[201:300]
+studySub <- fls_studyLs[501:length(fls_studyLs)]
 
 # Create vector of colors, one per MB study
-myCols <- rep(as.vector(polychrome(120)), length.out=length(studySub)) # This palette has only 36 colours, for now we just recycle them to reach the right length
+myCols <- rep(as.vector(polychrome(105)), length.out=length(studySub)) # This palette has only 36 colours, for now we just recycle them to reach the right length
 # colTab <- data.frame(MBid=names(studySub), col=myCols, 
 #                      fakeLong=sample(x=-200:200, length(studySub), replace=T), fakeLat=sample(x=-90:90, length(studySub), replace=T))
 
@@ -123,6 +136,6 @@ for(i in 1:length(studySub)){
 }
 
 baseMap
-ggsave("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/MovementData/distrMaps/distrMaps_allStudies_pt3_201-300_noOut.tiff", 
+ggsave("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/MovementData/distrMaps/distrMaps_allStudies_pt6_501-603_noOut.tiff", 
        width = 11, height = 7, units = "in", dpi=300)
-#saveRDS(baseMap, file="/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/MovementData/distrMaps/distrMap_pt2_101-250.rds")
+#saveRDS(baseMap, file="/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/MovementData/distrMaps/distrMap_pt1_1-100.rds")
