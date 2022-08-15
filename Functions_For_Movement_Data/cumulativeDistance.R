@@ -13,5 +13,7 @@ cumulativeDist <-  function(pathToMV, pathToOutputFolder){
                             cumulativeDist_km=distSplitTab[,1]/1000,
                             row.names = NULL)
   # return(cumDistDay)
-  saveRDS(cumDistDay, file=paste0(pathToOutputFolder,"cumDistDay_",moveObj@idData$study.id,"_",moveObj@idData$individual.local.identifier,".rds"))
+  indiv <- moveObj@idData$individual.local.identifier
+  if(grepl("/", indiv)==T){indiv <- gsub("/","-",indiv)}
+  saveRDS(cumDistDay, file=paste0(pathToOutputFolder,"cumDistDay_",moveObj@idData$study.id,"_",indiv,".rds"))
 }

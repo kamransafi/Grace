@@ -16,8 +16,7 @@ dir.create(outputFolder)
 
 results <- lapply(flsMV, function(f)try({cumulativeDist(f, outputFolder)}))
 
-# Check potential errors:
-table(vapply(results, is.error, logical(1)))
+table(vapply(results, is.error, logical(1))) # Check potential errors:
 
 #________________________________________________
 ## Calculate daily maximum net displacement ####
@@ -27,6 +26,5 @@ dir.create(outputFolder)
 
 results <- lapply(flsMV, function(f)try({maxNetDisp(f, outputFolder)}))
 
-# Check potential errors:
-table(vapply(results, is.error, logical(1)))
+table(vapply(results, is.error, logical(1))) # Check potential errors:
 

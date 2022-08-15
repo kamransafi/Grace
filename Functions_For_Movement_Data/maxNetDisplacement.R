@@ -14,5 +14,7 @@ maxNetDisp <-  function(pathToMV, pathToOutputFolder){
                             maxNetDispl=distSplitTab[,1],
                             row.names = NULL)
   # return(maxNetDisplDay_)
-  saveRDS(maxNetDisplDay, file=paste0(pathToOutputFolder,"maxNetDisplDay_",moveObj@idData$study.id,"_",moveObj@idData$individual.local.identifier,".rds"))
+  indiv <- moveObj@idData$individual.local.identifier
+  if(grepl("/", indiv)==T){indiv <- gsub("/","-",indiv)}
+  saveRDS(maxNetDisplDay, file=paste0(pathToOutputFolder,"maxNetDisplDay_",moveObj@idData$study.id,"_",indiv,".rds"))
 }
