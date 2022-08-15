@@ -27,6 +27,8 @@ Before saving each individual as a move object we subsample the locations to 1 h
 -   `M4_removeOutliers_plotGlobalDistribution.R`: This script remove outliers from the individual move objects saved in the previous step. Outliers are identifier and filtered out based on the distribution of ground speeds within each study. We identify the 99.95% quantile in speed. If this quantile corresponds to a speed value > 50 m/s we identify the higher quantile that is < 50 m/s and remove recursively (with a while loop) all observations above this threshold. The reason for choosing 50 m/s as threshold is that in horizontal flight, swifts and brazilian bats (Teague) are considered the fastest flyers with 110 and 160 km/h (44.4 m/s). https://en.wikipedia.org/wiki/Fastest_animals
 After filtering out the outliers, the spatial distribution of the trajectories of each study are plot on a global maps in groups of 100 studies.
 
+-   `M5_applyDailyMovementFunctions.R`: This script applies the functions written by Anne to calculate cumulative daily distance travelled, daily maximum net displacement, daily motion variance, daily UDs (in the doing). 
+
 
 ### METRIC FUNCTIONS
 
