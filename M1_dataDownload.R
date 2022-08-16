@@ -38,7 +38,7 @@ results <- lapply(1:nrow(toDo), function(i) try({
   # download data accepting licence. After running this line once, we can use the regular move functions for download. --- CSV files name is the studyID. details about attributes, sensors, individuals, etc can/should be added
   system(paste0('curl -v -u ', paste0(as.vector(credsT$headers), collapse=":"), ' -b ./cookies.txt -o ',tmpfld,'/',paste0(studyId,".csv"),' "https://www.movebank.org/movebank/service/direct-read?entity_type=event&study_id=', studyId, '&license-md5=', md5sum(paste0(tmpfld,'/Movebank_license_terms.txt')), '"'))
   # Now the licence has been "accepted" and we can normally downloaad the rest of the information using the move functions
-  allInds <- getMovebank("individual", login=credsT, study_id=studyId)
+  allInds <- getMovebank("individual", login=credsT, study_id=studyId) #, timestamp_end=20220729235959000
   # Exclude individuals that have no GPS data
   allInds <- allInds[grep("gps", allInds$sensor_type_ids),]
   # Exclude potential testing individuals
@@ -50,7 +50,8 @@ results <- lapply(1:nrow(toDo), function(i) try({
     gps_ls <- lapply(indNames, function(ind)try({
       print(ind)
       # Download gps data per individual
-      gps <- getMovebankLocationData(study=studyId, animalName=ind, sensorID="GPS", login=credsT, underscoreToDots=T)
+      gps <- getMovebankLocationData(study=studyId, animalName=ind, sensorID="GPS", 
+                                     login=credsT, underscoreToDots=T)  #, timestamp_end=20220729235959000
       # Remove NAs from timestamp and coords
       gps <- gps[complete.cases(gps[,c("timestamp","location.long","location.lat")]),]
       if(nrow(gps)>0){

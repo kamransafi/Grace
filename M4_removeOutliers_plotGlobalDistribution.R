@@ -23,11 +23,14 @@ fls_indivLs <- split(indivIds, studyIds)
 #   #return(anyNA(studyDf$coords.x1))
 #   #return(anyNA(studyDf$study.id))
 # })
-# table(unlist(results)) 
+# table(unlist(results))
 
+# Some outliers are "errors" in the live feed with locations in the future.
+# To remove them we exclude any locations that occurs after the date in which we downloaded the data (29 July 2022)
+downloadDate <- as.Date("2022-07-29", "%Y-%m-%d")
 
-# Remove outliers based on speed fls_studyLs[251:500][93 177 205 240]
-results <- lapply(fls_studyLs[501:610], function(fls)try({
+# Remove outliers based on speed 
+results <- lapply(fls_studyLs[201:603], function(fls)try({
   
   #fls=fls_studyLs[["180156318"]] #18957668 14671003 1088836380 180156318
   mLs <- lapply(fls, readRDS)
@@ -46,10 +49,11 @@ results <- lapply(fls_studyLs[501:610], function(fls)try({
   maxQuant <- qSpeed["99.95%"]
   if(maxQuant > 50){maxQuant <- max(qSpeed[qSpeed <= 50])}
   
-  # Filter each individual based on the last quantile
+  # Filter each individual based on the last quantile and remove locations posterior to the download date (29 July 2022)
   mLs_noOut <- lapply(mLs, function(m){
     
-    mSub <- m    
+    mSub <- m[which(as.Date(timestamps(m), tz="UTC") <= downloadDate)]
+    
     while(any(speed(mSub) > maxQuant)==T){
       mSub <- mSub[which(c(NA,speed(mSub)) < maxQuant)]
     }
