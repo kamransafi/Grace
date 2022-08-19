@@ -5,7 +5,7 @@
 
 
 
-#bioclim requires average monthly values as well and min and max of the month. 
+#bioclim requires average monthly values as well and min and max of the month (https://www.worldclim.org/data/bioclim.html). 
 #we only have one average value per month. but we could do quarterly
 
 #open data
