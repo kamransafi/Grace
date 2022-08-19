@@ -69,6 +69,8 @@ df_ls <- lapply(nc_files, function(x){
   df
 })
 
+#some summary info: (Not all years have data for every month)
+
 #number of months per year
 names(df_ls) <- 2002:2021
 lapply(df_ls, function(x) unique (x$mnth))
