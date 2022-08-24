@@ -67,6 +67,8 @@ Martina and me (Anne) decided that the best way to proceed is:
 
 ### MODELLING IDEAS
 
+##### **Models for Martins presentation**
+
 **M1**: daily.movement \~
 
 daily.Grace.experience(dGe) + *(weighted G. availability in dailyUD)*
@@ -79,19 +81,17 @@ species (random fac)+
 
 locomotory.mode
 
-------------------------------------------------------------------------
+-   *daily.movement*:
 
-*daily.movement*:
+    -   daily.cumulative.distance
 
--   daily.cumulative.distance
+    -   daily dBMvariance
 
--   daily dBMvariance
+    -   motion type (brownian, levy, etc), use 1st passage time as proxy?
 
--   motion type (brownian, levy, etc), use 1st passage time as proxy?
+-   *prediction*: increase in grace variability -\> increase in daily movement
 
-*prediction*: increase in grace variability -\> increase in daily movement
-
-*prediction Maps* - see pics in Minerva messenger
+-   *prediction Maps* - see pics in Minerva messenger
 
 ------------------------------------------------------------------------
 
@@ -105,33 +105,30 @@ loc.mode+
 
 s(time) *(time since first measurement of Grace)*
 
-------------------------------------------------------------------------
+-   *monthly/annual.movement*:
 
-*monthly/annual.movement*:
+    -   cumulative range shift (using geometric centroid of each dailyUD)
 
--   cumulative range shift (using geometric centroid of each dailyUD)
+    -   means of "*daily.movement*" of M1
 
--   means of "*daily.movement*" of M1
+    -   dailyUD size mean, var, etc?
 
--   dailyUD size mean, var, etc?
+-   *diff.calculations.of.dGe*:
 
-*diff.calculations.of.dGe*:
+    -   all sorts of calculations per month or year that we can come up with, e.g:
 
-all sorts of calculations per month or year that we can come up with, e.g:
+        -   dryest month
 
--   dryest month
+        -   min-max
 
--   min-max
+        -   mean
 
--   mean
+        -   var
 
--   var
+        -   etc
 
--   etc
 
-------------------------------------------------------------------------
-
-**ADDITIONAL FOLLOW UP PROJECTS:**
+##### **ADDITIONAL FOLLOW UP PROJECTS:**
 
 -   changes in migration routes \~ changes in water availability
 
