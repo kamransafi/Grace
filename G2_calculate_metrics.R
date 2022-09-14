@@ -3,50 +3,37 @@
 #Aug. 19. 2022. Elham Nourani, PhD. Konstanz, Germany.
 
 
+library(tidyverse)
+library(raster)
+library(terra)
 
 
-#bioclim requires average monthly values as well and min and max of the month (https://www.worldclim.org/data/bioclim.html). 
-#we only have one average value per month. but we could do quarterly
+#extract crs
+nc_eg <- raster("/home/enourani/ownCloud/Work/Projects/GRACE/raw_data_from_martina//GRAVIS-3_2015-----------_GFZOP_0600_TWS_GRID_GFZ_0004.nc")
+grace_crs <- proj4string(nc_eg)
 
 #open data
-
-#files <- list.files("/home/enourani/ownCloud/Work/Projects/GRACE/data_dfs/", pattern = "rds", full.names = T)
-
 dfs <- readRDS( "/home/enourani/ownCloud/Work/Projects/GRACE/data_dfs/df_ls.rds") %>% 
-  reduce(rbind)
+  reduce(rbind) %>% 
+  mutate(date_time = as.POSIXct(date_time, format = "%Y-%m-%d %H:%M:%OS", tz = "UTC"))
 
+#calculate variance of each month across the years
+summary_df <- dfs %>% 
+  group_by(lat, lon, mnth) %>% 
+  mutate(var_tws = var(tws, na.rm = T)) %>%
+  ungroup() %>% 
+  dplyr::select(c("lon", "lat", "var_tws", "mnth"))
 
-annual_vars_df <- dfs %>%
-  group_by(lat, lon, year) %>% #for each location, for each year, calculate the following:
-  summarize(annual_mean_tws = mean(tws, na.rm = T),
-            annual_range_tws = max(tws, na.rm = T) - min(tws, na.rm = T),
-            seasonality_tws = sd(tws,na.rm = T) * 100, #bioclim multiplies this by 100, so I did too
-            annual_max_tws = max(tws, na.rm = T), #tws of the wettest month
-            annual_min_tws = min(tws, na.rm = T), #tws of the driest month
-            wettest_mnth = mnth[which.min(tws)],
-            driest_mnth = mnth[which.max(tws)]
- ) 
+saveRDS(variance_df, file = "/home/enourani/ownCloud/Work/Projects/GRACE/mnth_vars.rds")
 
-#estimate quarterly vars and merge with annual ones
-quarter_vars_df <- dfs %>% 
-  mutate(quarter = ifelse(between(mnth, 1,3), "first", 
-                          ifelse(between(mnth, 3,6), "second",
-                                 ifelse(between(mnth, 7,9), "third", "fourth")))) %>% #create variable for quarter
-  group_by(lat, lon, year, quarter) %>% #for each location, for each quarter of each year, calculate the following:
-  mutate(quarter_mean_tws = mean(tws, na.rm = T),
-         quarter_min_tws = min(tws, na.rm = T),
-         quarter_max_tws = max(tws, na.rm = T))
+#create an r stack with one layer per month
+mnth_ls <- split(summary_df, variance_df$mnth)
   
-  all_vars <- dfs %>% 
-  group_by(lat, lon, year, quarter) %>% 
-    summarize(quarter_min_tws = )
-    
-  
-#calculate variables inspired by WorldClim (https://www.worldclim.org/data/bioclim.html)
+r_stack <- lapply(mnth_ls, function(x){
+  r <- rast(x[,-4], crs = grace_crs)
+  saveRDS(r, paste0("/home/enourani/ownCloud/Work/Projects/GRACE/grace_vars/grace_var_mnth_", x$mnth[1], ".rds"))
+  r
+}) %>% 
+  rast()
 
-#annual trends: mean annual tws
-
-
-#seasonality: annual range in tws 
-
-#extreme or limiting factors: min tws of the driest month, max tws of the wettest month, 
+saveRDS(r_stack, file = "/home/enourani/ownCloud/Work/Projects/GRACE/vars_stack.rds")

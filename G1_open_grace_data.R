@@ -69,10 +69,14 @@ df_ls <- lapply(nc_files, function(x){
   df
 })
 
+names(df_ls) <- 2002:2021
+
+saveRDS(df_ls , file = "/home/enourani/ownCloud/Work/Projects/GRACE/data_dfs/df_ls.rds")
+
 #some summary info: (Not all years have data for every month)
 
 #number of months per year
-names(df_ls) <- 2002:2021
+
 lapply(df_ls, function(x) unique (x$mnth))
 
 # check to make sure all months have the expected number of rows (i.e. data for two months might be assigned to one)
