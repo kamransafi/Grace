@@ -6,6 +6,7 @@
 library(tidyverse)
 library(raster)
 library(terra)
+library(ncdf4)
 
 
 #extract crs
@@ -18,22 +19,23 @@ dfs <- readRDS( "/home/enourani/ownCloud/Work/Projects/GRACE/data_dfs/df_ls.rds"
   mutate(date_time = as.POSIXct(date_time, format = "%Y-%m-%d %H:%M:%OS", tz = "UTC"))
 
 #calculate variance of each month across the years
-summary_df <- dfs %>% 
+variance_df <- dfs %>% 
   group_by(lat, lon, mnth) %>% 
   mutate(var_tws = var(tws, na.rm = T)) %>%
   ungroup() %>% 
   dplyr::select(c("lon", "lat", "var_tws", "mnth"))
 
-saveRDS(variance_df, file = "/home/enourani/ownCloud/Work/Projects/GRACE/mnth_vars.rds")
+#saveRDS(variance_df, file = "/home/enourani/ownCloud/Work/Projects/GRACE/mnth_vars.rds")
+
 
 #create an r stack with one layer per month
-mnth_ls <- split(summary_df, variance_df$mnth)
+mnth_ls <- split(variance_df, variance_df$mnth)
   
 r_stack <- lapply(mnth_ls, function(x){
-  r <- rast(x[,-4], crs = grace_crs)
-  saveRDS(r, paste0("/home/enourani/ownCloud/Work/Projects/GRACE/grace_vars/grace_var_mnth_", x$mnth[1], ".rds"))
+  r <- rast(x[,-ncol(x)], crs = grace_crs)
+  writeRaster(r, paste0("/home/enourani/ownCloud/Work/Projects/GRACE/grace_vars/grace_var_mnth_", x$mnth[1], ".tif"), overwrite=TRUE)
   r
 }) %>% 
   rast()
 
-saveRDS(r_stack, file = "/home/enourani/ownCloud/Work/Projects/GRACE/vars_stack.rds")
+
