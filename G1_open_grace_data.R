@@ -9,6 +9,7 @@ library(PCICt) #for calendar conversion
 
 #Open ncdf files and save as dfs
 nc_files <- list.files("/home/enourani/ownCloud/Work/Projects/GRACE/raw_data_from_martina/", pattern = ".nc", full.names = T)
+#nc_files <- list.files("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/RemoteSensingData/GRACE_waterAnomalies_level3/isdcftp.gfz-potsdam.de", pattern = ".nc", full.names = T)
 
 vname <- c("tws", "std_tws", "leakage", "model_atmosphere")
 
