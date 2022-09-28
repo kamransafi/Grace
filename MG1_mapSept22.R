@@ -10,9 +10,13 @@ library(RStoolbox)
 library(ggplot2)
 
 setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/")
-fls <- list.files("./RemoteSensingData/GRACE_monthlyVariance", pattern="tif", full.names = T)
+fls_var <- list.files("./RemoteSensingData/GRACE_monthlyVariance", pattern="tif", full.names = T)
+fls_avg <- list.files("./RemoteSensingData/GRACE_monthlyMean", pattern="tif", full.names = T)
 # mean of the monthly variance across the 20 years
-grace <- mean(stack(lapply(fls, raster)))
+graceVar <- mean(stack(lapply(fls_var, raster)))
+graceAvg <- mean(stack(lapply(fls_avg, raster)))
+grace <- stack(graceAvg, graceVar)
+names(grace) <- c("graceAvg", "graceVar")
 head(coordinates(grace))
 tail(coordinates(grace))
 levelplot(grace)
@@ -26,7 +30,11 @@ pp$x[pp$x>180] <- pp$x[pp$x>180] -360
 coordinates(pp) <- c("x","y")
 crs(pp) <- crs("+init=epsg:4326")
 plot(pp)
-newGrace <- rasterize(pp, newGrace, field="layer", fun=mean, background=NA)
+newGraceAvg <- rasterize(pp, newGrace, field="graceAvg", fun=mean, background=NA)
+newGraceVar <- rasterize(pp, newGrace, field="graceVar", fun=mean, background=NA)
+newGrace <- stack(newGraceAvg, newGraceVar)
+names(newGrace) <- c("mean_graceAvg", "mean_graceVar")
+saveRDS(newGrace, file="./RemoteSensingData/grace_meanOfMonthlyAvgVar.rds")
 levelplot(newGrace)
 
 # crop to the extent of where data are available
@@ -58,7 +66,7 @@ oc <- brick("RemoteSensingData/backgroundMaps/OB_50M.tif")
 plot(extent(-180,180,-90,90), axes=F, xlab="", ylab="", asp=1) #bty="n"
 plotRGB(oc, add=T)
 plot(hs_mask, useRaster=F, col=gray.colors(7), add=T, legend=F) #use geom_raster=F to plot as image and not as raster
-plot(stretch(newGrace, maxq=.95), add=T, col=viridis(10), legend=F, alpha=.65)
+plot(stretch(newGrace[["mean_graceVar"]], maxq=.95), add=T, col=viridis(10), legend=F, alpha=.65)
 
 
 # the extents don't match by few degrees for some reason, we crop it as it's only for visualization purposes
@@ -67,7 +75,7 @@ grace_projC <- crop(grace_proj, extent(natCrop))
 # final raster map
 #ggR(darkCrop, geom_raster = F) + #or
 baseMap <- ggRGB(natCrop, r=1, g=2, b=3) +  
-  ggR(grace_projC, maxpixels =  1624980, geom_raster = T, stretch = "hist", alpha=.7, ggLayer = T) + # stretch either 'none', 'lin', 'hist', 'sqrt' or 'log'
+  ggR(grace_projC[["mean_graceVar"]], maxpixels =  1624980, geom_raster = T, stretch = "hist", alpha=.7, ggLayer = T) + # stretch either 'none', 'lin', 'hist', 'sqrt' or 'log'
   coord_sf() + 
   scale_fill_viridis(name="Monthly \nvariance", na.value = NA) +
   theme_bw() + xlab("")+ ylab("") +
@@ -138,24 +146,38 @@ setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/")
 load("./FirstMap_Sept22/rastersForBackgroundMap.rdata")
 indFls <- list.files("MovementData/MoveObjects_1hour_noOutliers", full.names=T)
 
+refTab <- readRDS("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/MovementData/referenceTableStudies_ALL_excludedColumn.rds")
+refTab <- refTab[which(refTab$excluded=="no"),]
+length(unique(refTab$species))
+length(unique(refTab$MBid))
+
+
 compareCRS(mv, newGrace)
 
 #___________________________________
 # Single palette for grace variance
+#____________________________________
 
-jpeg("./FirstMap_Sept22/nat_stretch_points_black.jpeg", width=120, height=120/2, units="cm", res=500)
+myPal <- colorRampPalette(colors = c("darkmagenta","firebrick4","firebrick","darkorange","yellow","bisque","cadetblue1","darkblue"))(100)
+
+jpeg("./FirstMap_Sept22/final/nat_changeTWS_points_black_alpha01.jpeg", width=120, height=120/2, units="cm", res=500)
+par(mar=c(3,3,3,3))
 plot(extent(-180,180,-90,90), axes=F, xlab="", ylab="", asp=1) #bty="n"
 plotRGB(nat, add=T)
 # plotRGB(oc, add=T)
 # plot(hs_mask, useRaster=F, col=gray.colors(7), add=T, legend=F) #use geom_raster=F to plot as image and not as raster
-plot(stretch(newGrace, maxq=.95), add=T, col=magma(15), legend=F, alpha=.65)
-
+# plot(stretch(newGrace[["mean_graceVar"]], maxq=.95), add=T, col=magma(15), legend=F, alpha=.65)
+plot(newGrace[["mean_graceAvg"]], add=T, col=myPal, legend=F, alpha=.55)
+plot(newGrace[["mean_graceAvg"]], legend.only=TRUE, col=myPal,
+     smallplot=c(0.96,0.97, 0.35,0.65),
+     # legend.width=2,
+     axis.args=list(cex.axis=2),
+     legend.args=list(text='Change in total water storage (cm)', side=2, font=2, line=1, cex=2)) #side=4, cex=0.8, line=2.5 for right side legend
 for(f in indFls){
   mv <- readRDS(f)
-  
-  #points(mv, col=alpha("black",.4), cex=.07, pch=19)
+ #points(mv, col=alpha("black",.4), cex=.07, pch=19)
   #points(mv, col=alpha("white",.2), cex=.07, pch=19)
-  points(mv, col=alpha("dodgerblue",.1), cex=.07, pch=19)
+  points(mv, col=alpha("black",.1), cex=.07, pch=19)
 
   # if(ymax(mv) < ymax(newGrace) & ymin(mv) > ymin(newGrace)){ #this is to exclude move obj that fall outside the gra product boundaries
   #   
@@ -172,53 +194,111 @@ for(f in indFls){
 }
 dev.off()
 
+
 #____________________________________________________________
 # Double color palette for grace variance and absolute value
+#____________________________________________________________
+
+library(raster)
+library(scales)
+library(gtools)
+library(move)
+
+setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/")
+
+# import newGrace
+newGrace <- readRDS(file="./RemoteSensingData/grace_meanOfMonthlyAvgVar.rds")
+# import background maps
+load("./FirstMap_Sept22/rastersForBackgroundMap.rdata")
+# import individuals
+indFls <- list.files("MovementData/MoveObjects_1hour_noOutliers", full.names=T)
+
+#----------------------------------------
+# Define 2D color palette (Kami's script)
 
 library(classInt)
 my.data<-seq(0,1,.01)
 
 my.class<-classIntervals(my.data,n=10,style="quantile")
-my.pal.1<-findColours(my.class,c(rgb(0,150,235, maxColorValue=255),"grey"))
-my.pal.2<-findColours(my.class,c(rgb(130,0,80, maxColorValue=255), rgb(255,230,15, maxColorValue=255)))
+# original palette from kami
+# my.pal.1<-findColours(my.class,c(rgb(0,150,235, maxColorValue=255),"grey")) #original from kami
+# my.pal.2<-findColours(my.class,c(rgb(130,0,80, maxColorValue=255), rgb(255,230,15, maxColorValue=255))) 
+# modified
+my.pal.1<-findColours(my.class,c("darkgreen","goldenrod1")) #high to low
+my.pal.2<-findColours(my.class,c("darkmagenta","cyan")) #high to low
+
+plot(rep(0,101),my.data,pch=19,col=my.pal.1, cex=1, xlim=c(0,1),ylim=c(0,1))
+points(rep(1,101),my.data,pch=19,col=my.pal.2, cex=1)
 
 # blue, greem   
 #red,yellow  
 #red:
 #green: rgb(17,255,20, maxColorValue=255))                    
 
-
-plot(rep(0,101),my.data,pch=19,col=my.pal.1, cex=1, xlim=c(0,1),ylim=c(0,1))
-points(rep(1,101),my.data,pch=19,col=my.pal.2, cex=1)
-
-#------------------------------------
-# loop: use left and right vertical
-# color ramp & interpolate horizontally
-#------------------------------------
-
-col.matrix<-matrix(nrow = 101, ncol = 101, NA)
-
+# loop: use left and right vertical color ramp & interpolate horizontally
+col.matrix <- matrix(nrow = 101, ncol = 101, NA)
 for(i in 1:101){
-  my.col<-c(paste(my.pal.1[i]),paste(my.pal.2[i])) # choose colors
-  col.matrix[102-i,]<-findColours(my.class,my.col)
+  my.col <- c(paste(my.pal.1[i]),paste(my.pal.2[i])) # choose colors
+  col.matrix[102-i,] <- findColours(my.class,my.col)
 }
 
-#------------------------------------
+#-----------------
 # plot full grid
-#------------------------------------
 
+# plot(rep(0,101),my.data,pch=19,col=my.pal.1, cex=0.5,
+#      xlim=c(0,1),ylim=c(0,1))
+jpeg("./FirstMap_Sept22/final/2D_legend_M.jpeg", width=20, height=20, units="cm", res=300)
+#png("./FirstMap_Sept22/2D_legend_M_alpha.png", width=20, height=20, units="cm", res=300, bg="transparent")
+png("./FirstMap_Sept22/final/2D_legend_M_yellowGreenMagentaCyan_noAxes_alpha.png", width=20, height=20, units="cm", res=300, bg="transparent")
+#par(mar=c(6,6,3,3))
+par(mar=c(3,3,3,3))
 plot(rep(0,101),my.data,pch=19,col=my.pal.1, cex=0.5,
-     xlim=c(0,1),ylim=c(0,1))
-
+     xlim=c(0,1),ylim=c(0,1),
+     #main="Change in terrestrial total water storage\n averaged 2002-2021",
+     axes=F,
+     xlab="", 
+     ylab="")
+# title(xlab="Average monthly var(change tws) 2002-2021\n(min=3.6, med=21.4, max=6063.0)", line=3.5, cex.lab=1.1, font=2)
+# title(ylab="Average monthly change in tws 2002-2021\n(min=-16.7, med=-0.2, max=5.2)", line=2.5, cex.lab=1.1, font=2)
 for(i in 1:101){
   col.temp<-col.matrix[i-1,]
   points(my.data,rep((i-1)/100,101),pch=15,col=col.temp, cex=1)
 }
+dev.off()
 col.matrix <- col.matrix[c(1,10,20,30,40,50,60,70,80,90,100), c(1,10,20,30,40,50,60,70,80,90,100)]
 matrix <- col.matrix
 
+#----------------------------------------
+# Associate color matrix to raster stack
 
+rDf <- rasterToPoints(newGrace, spatial=T)
 
+rDf$qAvg <- as.numeric(quantcut(rDf@data$mean_graceAvg, q = seq(0,1,0.1)))
+rDf$qVar <- as.numeric(quantcut(rDf@data$mean_graceVar, q = seq(0,1,0.1)))
+summary(rDf@data$mean_graceAvg)
+summary(rDf@data$mean_graceVar)
+
+colVect <- as.vector(t(matrix))
+#index in the color vector
+rDf$colorIndex <- rDf$qAvg * rDf$qVar
+rDf$colorName <- as.factor(colVect[rDf$colorIndex])
+# q1*q2 as vector(position in matrix = to index of class of 1 column and other column)
+rCol <- rasterize(rDf, newGrace, field="colorIndex", fun=mean, background=NA)
+plot(rCol, col=colorRampPalette(colVect)(121), axes=F, legend=F, box=F)
+
+#--------------------------
+# Plot trajectories on top
+
+jpeg("./FirstMap_Sept22/final/nat_2DpaletteM_yellowGreenMagentaCyan_points_black_alpha01.jpeg", width=120, height=120/2, units="cm", res=500)
+plot(extent(-180,180,-90,90), axes=F, xlab="", ylab="", asp=1) #bty="n"
+plotRGB(nat, add=T)
+plot(rCol, col=colorRampPalette(colVect)(121), add=T, legend=F, alpha=.65)
+
+for(f in indFls){
+  mv <- readRDS(f)
+    points(mv, col=alpha("black",.1), cex=.07, pch=19)
+  }
+dev.off()
 
 
 
