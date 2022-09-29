@@ -132,7 +132,7 @@ s(lat,long)
 
 diff.calculations.of.dGe+
 
-nb.species+
+species+
 
 loc.mode+
 
