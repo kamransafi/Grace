@@ -1,27 +1,36 @@
 library('move')
 library('lubridate')
 
-## this function gives one table per individual. This table can be used to filter out days with "to few" locations, etc
-## output is "RefTableIndiv_MBid_indiv.loc.ident.RData", object saved is called "RefTableIndiv"
-referenceTable_Individuals <-  function(moveObj,pathToFolder){ 
+## this function gives one table per individual, with:
+# - MBid, individual,  species, date #tag,
+# - tracking_duration_in_days, GPSpts_total
+# - GPSSpts_day, median_timelag_mins_day
+## output is "RefTableIndiv_MBid_indiv.name.rds"
+
+# pathToMV <-  "/home/anne/Documents/GRACEdata/MoveObjects_1hour_noOutliers//10006517_996-92355.rds"    
+
+referenceTable_Individuals <-  function(pathToMV,pathToOutputFolder){ 
+  moveObj <- readRDS(pathToMV)
+  indiv <- moveObj@idData$individual.local.identifier
+  if(grepl("/", indiv)==T){indiv <- gsub("/","-",indiv)}
   
-  rdfi <- data.frame(
-    commonID = paste0(moveObj@idData$study.id,"_",namesIndiv(moveObj),"_",floor_date(timestamps(moveObj), "day")),
+  RefTableIndiv0 <- data.frame(
+    commonID = paste0(moveObj@idData$study.id,"_",indiv,"_",floor_date(timestamps(moveObj), "day")),
     MBid = moveObj@idData$study.id,
-    individual.local.identifier = namesIndiv(moveObj),
-    tag.local.identifier = moveObj@idData$tag.local.identifier,
+    individual = indiv,
+    # tag.local.identifier = if(is.null(moveObj@idData$tag.local.identifier)){moveObj$tag.local.identifier},
     # deployment.id = moveObj@idData$deployment.id, ## check what happens when indiv has 2 several deployments
     species= moveObj@idData$individual.taxon.canonical.name,
     date = floor_date(timestamps(moveObj), "day"),
     tracking_duration_days = as.numeric(round(difftime(timestamps(moveObj)[n.locs(moveObj)], timestamps(moveObj)[1], "days"))),
     GPSpts_total = n.locs(moveObj)
   )
-  rdfi_r <- rdfi[!duplicated(rdfi), ]
+  RefTableIndiv <- RefTableIndiv0[!duplicated(RefTableIndiv0), ]
   
   roundTS <- floor_date(timestamps(moveObj), "day") 
   moveObjSplitTime <- split(moveObj, roundTS)
   
-  rdfi_r$GPSpts_day <- unlist(lapply(moveObjSplitTime, n.locs))
+  RefTableIndiv$GPSpts_day <- unlist(lapply(moveObjSplitTime, n.locs))
   
   medTL <- unlist(
     lapply(moveObjSplitTime, function(x){
@@ -29,11 +38,9 @@ referenceTable_Individuals <-  function(moveObj,pathToFolder){
       medianTL <- median(tl)
       return(medianTL)
     }))
-  rdfi_r$median_timelag_mins_day <- round(medTL)
-  RefTableIndiv <- rdfi_r
-  # return(rdfi_r)
-  save(file=paste0(pathToFolder,"RefTableIndiv_",moveObj@idData$study.id,"_",namesIndiv(moveObj),".RData"),RefTableIndiv)
+  RefTableIndiv$median_timelag_mins_day <- round(medTL)
+  
+  saveRDS(RefTableIndiv, file=paste0(pathToOutputFolder,"RefTableIndiv_",moveObj@idData$study.id,"_",indiv,".rds"))
 }
-
 
 
