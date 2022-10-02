@@ -1,4 +1,3 @@
-
 ### README
 
 So that everyone is on the same page, we thought that maybe we could state some main points here that we would like everyone to take into account when working on scripts.
@@ -27,7 +26,9 @@ Specifically, the code looks for duplicated combinations of either individualID-
 
 -   `M4_removeOutliers_plotGlobalDistribution.R`: This script remove outliers from the individual move objects saved in the previous step. Outliers are identifier and filtered out based on the distribution of ground speeds within each study. We identify the 99.95% quantile in speed. If this quantile corresponds to a speed value \> 50 m/s we identify the higher quantile that is \< 50 m/s and remove recursively (with a while loop) all observations above this threshold. The reason for choosing 50 m/s as threshold is that in horizontal flight, swifts and brazilian bats (Teague) are considered the fastest flyers with 110 and 160 km/h (44.4 m/s). <https://en.wikipedia.org/wiki/Fastest_animals> After filtering out the outliers, the spatial distribution of the trajectories of each study are plot on a global maps in groups of 100 studies. (Martina)
 
--   `M5_applyDailyMovementFunctions.R`: This script applies the functions written by Anne to calculate cumulative daily distance travelled, daily maximum net displacement, daily motion variance, daily UDs (in the doing). (Martina)
+-   `M5_IndivRefTable_addLocomotoryMode.R`: scripts applies function to create a reference table per individual including nb of days tracked, total and daily nb ofgps points, mean timelag per day, total tracking time etc. Also the species get associated to a locomotory mode according to the species lists downloaded from IUCN. (Anne)
+
+-   `M6_applyDailyMovementFunctions.R`: This script applies the functions written by Anne to calculate cumulative daily distance travelled, daily maximum net displacement, daily motion variance, daily UDs (in the doing). (Martina & Anne)
 
 ### METRIC FUNCTIONS
 
@@ -49,45 +50,37 @@ Martina and me (Anne) decided that the best way to proceed is:
 
 -   `referenceTableStudies()`: get a reference table with 1 line per individual. I.e. loop around all individuals and rbind result. Large table can be used e.g. to find duplicated individuals across studies, add column with info why individuals got removed from analysis. Individuals with multiple tags/deployments are kept in one lines and the different tag IDs/deployment IDs separated by a "\|". Gaps between deployments will be dealt with and filtered out at a later stage as all metrics will be calculated per day and associated to the number of locations. (Anne)
 
--   `referenceTable_Individuals()`: gives one table per individual. This table can be used to filter out days with "to few" locations, etc. Saves table as "RefTableIndiv_MBid_indiv.loc.ident.RData", object contained is called `RefTableIndiv`. (Anne)
+-   `referenceTable_Individuals()`: gives one table per individual. Including MBid, individual, tag, species, date, tracking_duration_in_days, GPSpts_total, GPSSpts_day, median_timelag_mins_day. Saves table as "RefTableIndiv_MBid_indiv.name.rds". (Anne) *(removed "tag id" for now as it needs time to be adapted for individuals with multiple tags)*
 
 #### Overview of functions for movement metrics
 
--   `cumulativeDist()`: calculates sum of all step lenghts per day, saves table per individual called "cumDistDay_MBid_indiv.name.RData", object contained is called `cumDistDay`. (Anne)
+-   `dailyDispl()`: includes the calculation of: *cumulativeDist_km*: sum of all step lenghts (in Km) per day; *maxNetDispl_km*: maximum distance (in Km) between any 2 locations per day & *straightnessIndex*: maxNetDispl_km/cumulativeDist_km. between 0-1, 1 is moving in straight line, idea is to use it as an indication of migratory day, cut-off value to be determined. Saves table per individual called "dailyDisplacement\_\_MBid_indiv.name.rds". (Anne)
 
--   `maxNetDisp()`: calculates the maximum distance between any 2 locations per day, saves table per individual called "maxNetDisplDay_MBid_indiv.name.RData", object contained is called `maxNetDisplDay`. (Anne)
+-   `dailydBBud()`: calculates mean(?) daily motion variance. Saved as "dailyMotionVar\_.....rds". Removes days that have less locations than "minLocationsDay", by setting \@interest==F. Calculates dBB per day looping through the splitted dbbvarburst object. Calculates ud size, geometric centroid of UD and weighted lat/long coords of UD, saved as "dailyUDcalc\_...rds". Extracts coordinates and values from dbb, as SPDF, saved as "dailyDBBcoordinatesSPDF\_...rds". (Anne)
 
--   cumDistDay/maxNetDisplDay \~ 1 =\> migratory day, cut-off value to be determined, not a function, just so idea does not get lost. (Anne & Martina)
-
--   daily motion variance - in the doings (Anne)
-
--   daily UD (and size) - in the doings (Anne) include: UD size, geometric centroid of UD, weighted grace availability in UD, weighted lat/log of UD
+-   weighted grace availability in UD: multiply SPDF object from above with grace raster and sum up values. Still to be done
 
 ### GRACE VARIABLES
 
-The data we get from GRACE are a measure of "monthly change in total water storage (tws)" from a baseline value (negative change = decrease in water, positive change = increase in water relative to the baseline; the baseline from which change is calculated being the mean over the period 2002-04 - 2020-03). ALL the water in the surface, on the surface, everywhere – total water storage – cannot be derived by GRACE as an absolute measure since there is no 0-measurement for Earth without water to which one could add change. Just the change in mass/gravity across time can be measured from GRACE. For estimating how much overall water is stored you need a model product.
-Therefore on the GRACE change dataset, a super "wet" area with water loss would look the same as a dry area becoming even dryer by the same amount.
-For a model product of absolute water content we could use GLDAS or any other water storage model.
+The data we get from GRACE are a measure of "monthly change in total water storage (tws)" from a baseline value (negative change = decrease in water, positive change = increase in water relative to the baseline; the baseline from which change is calculated being the mean over the period 2002-04 - 2020-03). ALL the water in the surface, on the surface, everywhere – total water storage – cannot be derived by GRACE as an absolute measure since there is no 0-measurement for Earth without water to which one could add change. Just the change in mass/gravity across time can be measured from GRACE. For estimating how much overall water is stored you need a model product. Therefore on the GRACE change dataset, a super "wet" area with water loss would look the same as a dry area becoming even dryer by the same amount. For a model product of absolute water content we could use GLDAS or any other water storage model.
 
 ### SCRIPTS - PROCESSING STEPS GRACE DATA
 
 -   `G1_open_grace_data.R`: (Elham)
-
 
 -   `G2_open_grace_data.R`: (Elham) we calculated, per month, the average change in water storage, and the variance of this change across the period 2002-2021.
 
 ### FIGURES
 
 -   `MG1_mapSept22.R`: The monthly average change and the monthly variance of this change were averaged across all months. The pixels in the map were coloured according to these two variables (the legend being a 2D matrix of colours):
-- yellow areas represent areas that have negative change in water availability and low variance in this change (decreasing total water storage of a predictable extent).
-- turquoise areas have a negative change in water but a high variation in this change (less predictable decrease in tws, more fluctuation).
-- dark green areas have a positive change and a low variation in this change  (predictable increase in tws).
-- magenta areas have a positive change in water and a high variation in this change (less predictable increase in tws, more fluctuation).
+-   yellow areas represent areas that have negative change in water availability and low variance in this change (decreasing total water storage of a predictable extent).
+-   turquoise areas have a negative change in water but a high variation in this change (less predictable decrease in tws, more fluctuation).
+-   dark green areas have a positive change and a low variation in this change (predictable increase in tws).
+-   magenta areas have a positive change in water and a high variation in this change (less predictable increase in tws, more fluctuation).
 
 Areas with predictable increase in water storage are very rare (dark green), most areas (magenta and turquoise) experience large fluctuations in change of water storage (increase or decrease by a changing amount), and many others (yellow) are predictably drying up...
 
-Some note about the movement data we used: the trajectories that you see in the map are from 15'173 individuals, 349 species and 623 movebank studies.
-The storks seem to be a very promising dataset to study movement response to the predictability in water storage, as their data cover very large areas and in Africa cover some areas of high predictability (in turquoise) and many areas of high fluctuations both in positive and negative change (yellow and magenta areas). 
+Some note about the movement data we used: the trajectories that you see in the map are from 15'173 individuals, 349 species and 623 movebank studies. The storks seem to be a very promising dataset to study movement response to the predictability in water storage, as their data cover very large areas and in Africa cover some areas of high predictability (in turquoise) and many areas of high fluctuations both in positive and negative change (yellow and magenta areas).
 
 ### MODELLING IDEAS
 
@@ -95,7 +88,7 @@ The storks seem to be a very promising dataset to study movement response to the
 
 **M1**: monthly average of daily.movement \~
 
-monthly.Grace.experience(mGe) + *(weighted GRACE by avg dailyUD or monthlyUD)*   
+monthly.Grace.experience(mGe) + *(weighted GRACE by avg dailyUD or monthlyUD)*  
 now availability should actually be "change in tws" and daily GRACE will be linearly interpolated for all days in all years.
 
 s(lat,long)+ *(weighted coordinates from dayilyUD)*
@@ -118,13 +111,11 @@ locomotory.mode
 
 -   *prediction Maps* - see pics in Minerva messenger
 
-**M2**: monthly.Grace(mG)  \~  
+**M2**: monthly.Grace(mG) \~
 
 s(lat,long)
 
-
-**final map = M1 - M2** 
-
+**final map = M1 - M2**
 
 ------------------------------------------------------------------------
 
@@ -159,7 +150,6 @@ s(time) *(time since first measurement of Grace)*
         -   var
 
         -   etc
-
 
 ##### **ADDITIONAL FOLLOW UP PROJECTS:**
 
