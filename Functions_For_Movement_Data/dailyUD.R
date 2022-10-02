@@ -7,9 +7,11 @@ library("rgeos") #gCentroid
 # calculates daily motion variance summarized as indicated by "functionDailyMotionVariance", saved as "dailyMotionVar_.....rds"
 # removes days that have less locations than "minLocationsDay", by setting @interest==F
 # calculates dBB per day looping through the splitted dbbvarburst object
-# calculates ud size and centroid, saved as "dailyUDsize_...rds" and "dailyCentroid_....rds"
-# extracts coordinates and values from dbb, saved as "dailyDBBcoordinatesValues_...rds",   NOTE many values per day, but all in one table per indiv
+# calculates ud size, centroid and weighted lat/long coords, saved as "dailyUDcalc_...rds" 
+# extracts coordinates and values from dbb, in SPDF, saved as "dailyDBBcoordinatesSPDF_...rds"
 
+
+### here to...##
 files <- list.files("~/GIT_SYNC/Grace/NoPush/testIndivsForUD/storks",full.names=T) #wilddogs buffaloes
 ## storks 1 only 5 loc/day good indiv to check stop script if not enough points
 # moveObj <- readRDS(files[[10]])
@@ -35,7 +37,7 @@ names(results) <- seq_along(results)
 results[vapply(results, is.error, logical(1))]
 files[1:2][vapply(results, is.error, logical(1))]
 
-#############################
+###### ....here goes into MX_UDcalcuc.R file #######################
 
 dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, extExpansionInMts,minLocationsDay,functionDailyMotionVariance,UDpercentage){
   # start_time <- Sys.time()
@@ -60,9 +62,6 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
   aggMotionVar <- aggregate(motionVar$motVar, by=list(motionVar$date), FUN=functionDailyMotionVariance)
   
   aggMotionVarNbLoc <- merge(aggMotionVar, locPerDayDF, by.x="Group.1",by.y="roundTS", all.x=T)
-  
-  
-  
   
   dailyMotionVar <- data.frame(commonID=paste(moveObj@idData$study.id, indiv, aggMotionVar$Group.1, sep="_"),
                                individual=indiv,
