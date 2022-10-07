@@ -1,0 +1,75 @@
+
+library(raster)
+library(rgdal)
+library(data.table)
+library(lubridate)
+
+setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE")
+
+# Import list of GRACE stacks
+atlGrace_infoBr <- readRDS("RemoteSensingData/GRACEraw_atlantic_allYearsAllMonths_brick.rds")
+atlGrace_br <- brick("RemoteSensingData/GRACEraw_atlantic_allYearsAllMonths_brick.tif")
+names(atlGrace_br) <- names(atlGrace_infoBr)
+atlGrace_br@z <- atlGrace_infoBr@z
+# Import table with the GRACE collection periods
+graceTimes <- readRDS("RemoteSensingData/grace_tws_collectionPeriods.rds")
+graceTimes <- graceTimes[order(graceTimes$grace_time),]
+# List individual files containing infos of daily UDs
+uds_indDay <- list.files("MovementData/UDs/nonFlying_dBB_spdf", full.names = T)
+
+# Create directory to store result
+dir.create("MovementData/UDs/nonFlying_dBB_graceExperienced")
+
+lapply(uds_indDay[1:2], function(fl){
+  ud <- readRDS(fl)
+  # add common id and rename dbb layer
+  MBid_indiv <- gsub(".*dailyDBBcoordinatesSPDF_|.rds","",fl)
+  ud$commonID <- paste(MBid_indiv, as.character(ud$date), sep="_")
+  names(ud)[names(ud)=="layer"] <- "dbb_val"
+  # add empty columns for grace times
+  ud@data[,c("grace_layer","start_graceCollection","end_graceCollection")] <- as.character(NA)
+  
+  # assign each daily ud (each row) to the grace layer-collection it belongs to
+  for(i in 1:nrow(ud)){
+    minTimeDiff <- which.min(abs(difftime(ud$date[i], graceTimes$grace_time, units="days")))
+    closerGrace <- graceTimes[c(minTimeDiff-1,minTimeDiff,minTimeDiff+1),]
+    whichCollection <- ud$date[i] > closerGrace$start_collection & ud$date[i] < closerGrace$end_collection
+    # if a pixel/day is close to a layer but it's not comprised in the collection period the step is skipped (no grace layer is associated to that day in the UD dataframe)
+    # otherwise the grace collection period including the day will be associated to the UD dataframe
+    # should there be more than one layer to associate we select the first one (by adding [1,] to the closerGrace selection)
+    if(any(whichCollection==T)){
+      ud[i,c("grace_layer","start_graceCollection","end_graceCollection")] <- as.matrix(closerGrace[whichCollection,c("grace_time","start_collection","end_collection")][1,])
+    }
+  }
+  ud@data$start_graceCollection <- as.Date(ud@data$start_graceCollection,"%Y-%m-%d")
+  ud@data$end_graceCollection <- as.Date(ud@data$end_graceCollection,"%Y-%m-%d")
+  # check that all days assign to a grace layers are actually included in the data collection period
+  print(all(ud@data$date > ud@data$start_graceCollection & ud@data$date < ud@data$end_graceCollection, na.rm=T))
+  
+  # For the next step we need the raster brick with all the GRACE layers, we will extract values from the layer corresponding to each day
+  # DBB pixels in days that could not be associated to any grace layer are automatically excluded from the output dataframe
+  ud_graceLs <- split(ud, ud$grace_layer)
+  ud_grace <- as.data.frame(rbindlist(lapply(ud_graceLs, function(ud_gr){
+    graceLayer <- atlGrace_br[[which(atlGrace_br@z$Date == unique(ud_gr$grace_layer))]]
+    ud_gr$grace_tws <- extract(graceLayer, ud_gr, method="bilinear") 
+    return(as.data.frame(ud_gr))
+  })))
+  ud_grace$graceExperienced <- ud_grace$dbb_val * ud_grace$grace_tws
+  
+  # save output (still multiple rows/pixels per day)
+  saveRDS(ud_grace, file=paste0("MovementData/UDs/nonFlying_dBB_graceExperienced/dailyDBBgrace_",MBid_indiv,".rds"))
+})
+
+
+
+
+### to get the weighted daily GRACE per indiv, 
+# 1- annotate the "dailyDBBcoordinatesSPDF_.......rds" with grace, 
+# 2- than multiply the extracted grace value by the column "layer" (dbb_val), 
+# 3- and sum it up per day -> this value is the weighted mean grace per day
+
+columns of DF: commonID, date, layer(rename to dbb_val), grace
+
+multiply dbb_val * grace
+
+sum that per date

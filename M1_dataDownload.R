@@ -74,7 +74,7 @@ results <- lapply(1:nrow(toDo), function(i) try({
 
 ## Check reasons for failed download/errors:
 table(vapply(results, is.error, logical(1)))
-# which returned errors/messages and why? by assigning names (seq_along) we can remove list elements (the ones which did not return errors) but we mantain the original list indexing
+# which returned errors/messages and why? by assigning names (seq_along) we can remove list elements (the ones which did not return errors) but we maintain the original list indexing
 results
 names(results) <- seq_along(results)
 results[vapply(results, is.error, logical(1))]
