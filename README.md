@@ -22,13 +22,13 @@ So that everyone is on the same page, we thought that maybe we could state some 
 
 Specifically, the code looks for duplicated combinations of either individualID-tagID-species or tagID-species or studyID-individualID-species (multiple tags simultaneously on the same individual within the same study). Once these duplicated combinations are found it checks if the start time and end time of the GPS tracking of the duplicates overlap. If it overlaps, the duplicate containing less locations gets "excluded" (the column "excluded" corresponding to that duplicate gets the value "yes"). Checking for overlapping tracking time allows to identify duplicates also within the same studyID as the same tag cannot be applied on two different individuals at the exact same time. The output of this script is therefore a copy of the reference table created at the beginning of the script, with an added column called "excluded", which takes values "yes/no" depending on whether the individualID-tagID combination was classified as duplicate. (Anne and Martina)
 
--   `M3_createMoveObject_dataSubsampling.R`: This script works on the non-duplicates, meaning it takes the individualID-tagID combinations that were not excluded from the previous steps. From now on the unit of the analyses is the individualID, meaning that the studyID and the tagID are not important anymore. Therefore multiple deployments of a same individual will be included in one single move object. Gaps between consecutive deployments will be dealt with in the following analyses as all metrics are calculated per day, and will be filtered a posteriori based on the number of locations collected on that day. Before saving each individual as a move object we subsample the locations to 1 hour using the amt package. (Martina)
+-   `M3_createMoveObject_dataSubsampling.R`: this script works on the non-duplicates, meaning it takes the individualID-tagID combinations that were not excluded from the previous steps. From now on the unit of the analyses is the individualID, meaning that the studyID and the tagID are not important anymore. Therefore multiple deployments of a same individual will be included in one single move object. Gaps between consecutive deployments will be dealt with in the following analyses as all metrics are calculated per day, and will be filtered a posteriori based on the number of locations collected on that day. Before saving each individual as a move object we subsample the locations to 1 hour using the amt package. The files produced in this script are stored in the folder "MoveObjects_1hourSubsample" and named as "MBid_indiv.rds". (Martina)
 
--   `M4_removeOutliers_plotGlobalDistribution.R`: This script remove outliers from the individual move objects saved in the previous step. Outliers are identifier and filtered out based on the distribution of ground speeds within each study. We identify the 99.95% quantile in speed. If this quantile corresponds to a speed value \> 50 m/s we identify the higher quantile that is \< 50 m/s and remove recursively (with a while loop) all observations above this threshold. The reason for choosing 50 m/s as threshold is that in horizontal flight, swifts and brazilian bats (Teague) are considered the fastest flyers with 110 and 160 km/h (44.4 m/s). <https://en.wikipedia.org/wiki/Fastest_animals> After filtering out the outliers, the spatial distribution of the trajectories of each study are plot on a global maps in groups of 100 studies. (Martina)
+-   `M4_removeOutliers_plotGlobalDistribution.R`: this script remove outliers from the individual move objects saved in the previous step. Outliers are identifier and filtered out based on the distribution of ground speeds within each study. We identify the 99.95% quantile in speed. If this quantile corresponds to a speed value \> 50 m/s we identify the higher quantile that is \< 50 m/s and remove recursively (with a while loop) all observations above this threshold. The reason for choosing 50 m/s as threshold is that in horizontal flight, swifts and brazilian bats (Teague) are considered the fastest flyers with 110 and 160 km/h (44.4 m/s). <https://en.wikipedia.org/wiki/Fastest_animals> After filtering out the outliers, the spatial distribution of the trajectories of each study are plot on a global maps in groups of 100 studies. The files produced in this script are stored in the folder "MoveObjects_1hour_noOutliers" and named as "MBid_indiv.rds". (Martina)
 
--   `M5_IndivRefTable_addLocomotoryMode.R`: scripts applies function to create a reference table per individual including nb of days tracked, total and daily nb ofgps points, mean timelag per day, total tracking time etc. Also the species get associated to a locomotory mode according to the species lists downloaded from IUCN. (Anne)
+-   `M5_IndivRefTable_addLocomotoryMode.R`: this script applies function to create a reference table per individual including nb of days tracked, total and daily nb of gps points, mean timelag per day, total tracking time etc. Also the species get associated to a locomotory mode according to the species lists downloaded from IUCN. (Anne)
 
--   `M6_applyDailyMovementFunctions.R`: This script applies the functions written by Anne to calculate cumulative daily distance travelled, daily maximum net displacement, daily motion variance, daily UDs (in the doing). (Martina & Anne)
+-   `M6_applyDailyMovementFunctions.R`: this script applies the functions written by Anne to calculate cumulative daily distance travelled, daily maximum net displacement, daily motion variance, daily UDs (in the doing). (Martina & Anne)
 
 ### METRIC FUNCTIONS
 
@@ -58,7 +58,6 @@ Martina and me (Anne) decided that the best way to proceed is:
 
 -   `dailydBBud()`: calculates mean(?) daily motion variance. Saved as "dailyMotionVar\_.....rds". Removes days that have less locations than "minLocationsDay", by setting \@interest==F. Calculates dBB per day looping through the splitted dbbvarburst object. Calculates ud size, geometric centroid of UD and weighted lat/long coords of UD, saved as "dailyUDcalc\_...rds". Extracts coordinates and values from dbb, as SPDF, saved as "dailyDBBcoordinatesSPDF\_...rds". (Anne)
 
--   weighted grace availability in UD: multiply SPDF object from above with grace raster and sum up values. Still to be done
 
 ### GRACE VARIABLES
 
@@ -66,21 +65,23 @@ The data we get from GRACE are a measure of "monthly change in total water stora
 
 ### SCRIPTS - PROCESSING STEPS GRACE DATA
 
--   `G1_open_grace_data.R`: (Elham)
+-   `G1_open_grace_data_asDF.R`: in the end for the analytical part we needed the layers as rasters so we used a different script (see below). This was used for building Fig. 1. (Elham)
 
--   `G2_open_grace_data.R`: (Elham) we calculated, per month, the average change in water storage, and the variance of this change across the period 2002-2021.
+-   `G2_calculate_metrics.R`: we calculated, per month, the average change in water storage, and the variance of this change across the period 2002-2021. Used for building Fig. 1. (Elham)
 
-### FIGURES
+-   `G1_open_grace_data_asBRICK_formatCollectionPeriods.R`: in this script the .nc files are opened as rasters and all grace layers are formatted in one big brick file, where each layer represents one grace collection period (file named "GRACEraw_atlantic_allYearsAllMonths_brick.tif"). The layers in the brick are named after the time slot in the corresponding .nc file. Grace "times" represent the middle of point of the collection period. In this script we also format the table provided by Eva Boergens, where each grace time is associated to two columns indicating the exact start and end of the collection period used to build the layer (file named "grace_tws_collectionPeriods.rds"). This table is used in the script MG1 to associate the daily movement data to the correct grace layer. (Martina)
 
--   `MG1_mapSept22.R`: The monthly average change and the monthly variance of this change were averaged across all months. The pixels in the map were coloured according to these two variables (the legend being a 2D matrix of colours):
--   yellow areas represent areas that have negative change in water availability and low variance in this change (decreasing total water storage of a predictable extent).
--   turquoise areas have a negative change in water but a high variation in this change (less predictable decrease in tws, more fluctuation).
--   dark green areas have a positive change and a low variation in this change (predictable increase in tws).
--   magenta areas have a positive change in water and a high variation in this change (less predictable increase in tws, more fluctuation).
 
-Areas with predictable increase in water storage are very rare (dark green), most areas (magenta and turquoise) experience large fluctuations in change of water storage (increase or decrease by a changing amount), and many others (yellow) are predictably drying up...
+### SCRIPTS - PROCESSING STEPS MOVEMENT METRICS & GRACE
 
-Some note about the movement data we used: the trajectories that you see in the map are from 15'173 individuals, 349 species and 623 movebank studies. The storks seem to be a very promising dataset to study movement response to the predictability in water storage, as their data cover very large areas and in Africa cover some areas of high predictability (in turquoise) and many areas of high fluctuations both in positive and negative change (yellow and magenta areas).
+-   `MG1_weightedGRACE_per_dailyDBB_byGRACEcollectionPeriod.R`: this script calculates the weighted daily GRACE experienced per individual. To do this we: 
+    1. assign each day of movement to the correct grace layer using the table of collection periods sent by Eva. Days that do not belong to any of the collection periods (time gaps in the GRACE data) are excluded.
+    2. annotate the DBB file (spatial points df) of each individual (files named "dailyDBBcoordinatesSPDF_MBid_indiv.rds") with the correct grace layer (extracted grace value corresponding to each DBB pixel in each day).
+    3. multiply the extracted grace value by the column "layer" (dbb_val) and save each file per individual (files "dailyDBBgrace_MBid_indiv.rds"), we call this variable "graceExperienced".
+    4. finally sum the graceExperienced per day, to obtained a daily value per individual. All days of all individuals are merged in one table named "nonFlying_allDailyGraceExperienced.rds".
+(Martina)
+
+-   `MG2_averageByGracePeriods_buildModelDF.R`: In the doings... this script will merge the table containing the daily movement metrics (daily UD size, daily cum distance and daily directness) with the table containing the daily GRACE experienced. All these variables will be averaged by grace collection periods (usually about a month) to build the final model dataframe. (Martina)
 
 ### MODELLING IDEAS
 
@@ -150,6 +151,20 @@ s(time) *(time since first measurement of Grace)*
         -   var
 
         -   etc
+        
+        
+### FIGURES
+
+-   `Fig1_mapSept22.R`: This script builds a first descriptive figure. The monthly average change and the monthly variance of this change were averaged across all months. The pixels in the map were coloured according to these two variables (the legend being a 2D matrix of colours):
+-   yellow areas represent areas that have negative change in water availability and low variance in this change (decreasing total water storage of a predictable extent).
+-   turquoise areas have a negative change in water but a high variation in this change (less predictable decrease in tws, more fluctuation).
+-   dark green areas have a positive change and a low variation in this change (predictable increase in tws).
+-   magenta areas have a positive change in water and a high variation in this change (less predictable increase in tws, more fluctuation).
+
+Areas with predictable increase in water storage are very rare (dark green), most areas (magenta and turquoise) experience large fluctuations in change of water storage (increase or decrease by a changing amount), and many others (yellow) are predictably drying up...
+
+Some note about the movement data we used: the trajectories that you see in the map are from 15'173 individuals, 349 species and 623 movebank studies. The storks seem to be a very promising dataset to study movement response to the predictability in water storage, as their data cover very large areas and in Africa cover some areas of high predictability (in turquoise) and many areas of high fluctuations both in positive and negative change (yellow and magenta areas).
+
 
 ##### **ADDITIONAL FOLLOW UP PROJECTS:**
 
