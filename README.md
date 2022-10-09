@@ -75,13 +75,15 @@ The data we get from GRACE are a measure of "monthly change in total water stora
 ### SCRIPTS - PROCESSING STEPS MOVEMENT METRICS & GRACE
 
 -   `MG1_weightedGRACE_per_dailyDBB_byGRACEcollectionPeriod.R`: this script calculates the weighted daily GRACE experienced per individual. To do this we: 
-    1. assign each day of movement to the correct grace layer using the table of collection periods sent by Eva. Days that do not belong to any of the collection periods (time gaps in the GRACE data) are excluded.
-    2. annotate the DBB file (spatial points df) of each individual (files named "dailyDBBcoordinatesSPDF_MBid_indiv.rds") with the correct grace layer (extracted grace value corresponding to each DBB pixel in each day).
+    1. assign each day of movement to the correct grace layer using the table of collection periods sent by Eva. Movement metrics in days that are outside the grace collection period (before April 2002 and after May 2022) are excluded. Movement metrics in days that correspond to temporal gaps during the grace collection period are also excluded;
+    2. annotate the DBB file (spatial points df) of each individual (files named "dailyDBBcoordinatesSPDF_MBid_indiv.rds") with the correct grace layer (extracted grace value corresponding to each DBB pixel in each day);
     3. multiply the extracted grace value by the column "layer" (dbb_val) and save each file per individual (files "dailyDBBgrace_MBid_indiv.rds"), we call this variable "graceExperienced".
     4. finally sum the graceExperienced per day, to obtained a daily value per individual. All days of all individuals are merged in one table named "nonFlying_allDailyGraceExperienced.rds".
 (Martina)
 
 -   `MG2_averageByGracePeriods_buildModelDF.R`: In the doings... this script will merge the table containing the daily movement metrics (daily UD size, daily cum distance and daily directness) with the table containing the daily GRACE experienced. All these variables will be averaged by grace collection periods (usually about a month) to build the final model dataframe. (Martina)
+
+-   `MG3_diseaseOutbreaks.R`: this script associate the occurrence of the disease outbreaks sent by Louis to the closest grace layer. Outbreaks happened outside the grace collection period (before April 2002 and after May 2022) are excluded. Outbreaks in dates that correspond to temporal gaps during the grace collection period are not excluded. Instead they are associate to the closest grace layer and the time difference from the closest layer is reported in a column named "timeDiff_daysFromCollection", for potential future filtering. (Martina)
 
 ### MODELLING IDEAS
 

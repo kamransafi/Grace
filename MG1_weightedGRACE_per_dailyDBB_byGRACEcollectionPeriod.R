@@ -30,6 +30,7 @@ dir.create("MovementData/UDs/nonFlying_dBB_graceExperienced")
 ## step 1 and 2: extract values from the correct grace layer and multiply it by the dbb value per pixel
 
 lapply(uds_indDay[1:2], function(fl){
+  print(fl)
   ud <- readRDS(fl)
   # add common id and rename dbb layer
   MBid_indiv <- gsub(".*dailyDBBcoordinatesSPDF_|.rds","",fl)
@@ -38,26 +39,34 @@ lapply(uds_indDay[1:2], function(fl){
   # add empty columns for grace times
   ud@data[,c("grace_layer","start_graceCollection","end_graceCollection")] <- as.character(NA)
   
+  # subset the ud dataset to only the time range in which GRACE was collected
+  #range(ud@data$date); min(graceTimes$start_collection); max(graceTimes$end_collection)
+  ud <- ud[ud@data$date >= min(graceTimes$start_collection) & 
+                 ud@data$date <= max(graceTimes$end_collection),]
+  
   # assign each daily ud (each row) to the grace layer-collection it belongs to
   for(i in 1:nrow(ud)){
     minTimeDiff <- which.min(abs(difftime(ud$date[i], graceTimes$grace_time, units="days")))
     closerGrace <- graceTimes[c(minTimeDiff-1,minTimeDiff,minTimeDiff+1),]
-    whichCollection <- ud$date[i] > closerGrace$start_collection & ud$date[i] < closerGrace$end_collection
+    whichCollection <- ud$date[i] >= closerGrace$start_collection & 
+      ud$date[i] <= closerGrace$end_collection
     # if a pixel/day is close to a layer but it's not comprised in the collection period the step is skipped (no grace layer is associated to that day in the UD dataframe)
     # otherwise the grace collection period including the day will be associated to the UD dataframe
     # should there be more than one layer to associate we select the first one (by adding [1,] to the closerGrace selection)
-    if(any(whichCollection==T)){
+    if(any(whichCollection[!is.na(whichCollection)]==T)){
       ud[i,c("grace_layer","start_graceCollection","end_graceCollection")] <- as.matrix(closerGrace[whichCollection,c("grace_time","start_collection","end_collection")][1,])
     }
   }
   ud@data$start_graceCollection <- as.Date(ud@data$start_graceCollection,"%Y-%m-%d")
   ud@data$end_graceCollection <- as.Date(ud@data$end_graceCollection,"%Y-%m-%d")
   # check that all days assign to a grace layers are actually included in the data collection period
-  print(all(ud@data$date > ud@data$start_graceCollection & ud@data$date < ud@data$end_graceCollection, na.rm=T))
+  print(all(ud@data$date > ud@data$start_graceCollection & 
+              ud@data$date < ud@data$end_graceCollection, na.rm=T))
   
   # For the next step we need the raster brick with all the GRACE layers, we will extract values from the layer corresponding to each day
   # step 1: DBB pixels in days that could not be associated to any grace layer are automatically excluded from the output dataframe
   ud_graceLs <- split(ud, ud$grace_layer)
+  
   ud_grace <- as.data.frame(rbindlist(lapply(ud_graceLs, function(ud_gr){
     graceLayer <- atlGrace_br[[which(atlGrace_br@z$Date == unique(ud_gr$grace_layer))]]
     ud_gr$grace_tws <- extract(graceLayer, ud_gr, method="bilinear") 
