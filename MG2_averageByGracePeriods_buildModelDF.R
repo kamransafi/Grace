@@ -15,4 +15,19 @@ graceTimes <- graceTimes[order(graceTimes$grace_time),]
 # Import table with metrics and grace experienced per day and per individual
 daily_graceExp <- readRDS("MovementData/UDs/nonFlying_allDailyGraceExperienced.rds")
 daily_metrics <- readRDS("MovementData/UDs/nonFlying_UDcalculations.rds")
+# and the reference table including individual infos and locomotory mode
+indivInfos <- readRDS()
 
+# Create a column containing MBid and Indiv
+daily_graceExp$MBid_indiv <- sapply(lapply(strsplit(daily_graceExp$commonID,"_"),"[",1:2),paste,collapse="_")
+# add the start and end of the grace collection periods
+collectionPeriods <- data.frame(grace_layer=as.character(graceTimes$grace_time),
+                                collPeriod=paste(graceTimes$start_collection, graceTimes$end_collection, sep="_"))
+all(unique(daily_graceExp$grace_layer) %in% collectionPeriods$grace_layer)
+daily_graceExp <- merge(x=daily_graceExp, y=collectionPeriods, 
+                        by="grace_layer", all.x=T) 
+
+# average variables by collection period
+modelDF <- aggregate(cbind(graceExperienced) ~ MBid_indiv + collPeriod, data=daily_graceExp, mean)
+  
+  
