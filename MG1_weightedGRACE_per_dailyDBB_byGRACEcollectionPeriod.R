@@ -1,7 +1,7 @@
 
 ### to get the weighted daily GRACE per indiv, 
 # 1- annotate the "dailyDBBcoordinatesSPDF_.......rds" with the correct grace layer, 
-# 2- than multiply the extracted grace value by the column "layer" (dbb_val), 
+# 2- than multiply the extracted grace value by the column "layer" (dBBvalue), 
 # 3- and sum it up per day -> this value is the weighted mean grace per day
 
 library(raster)
@@ -32,10 +32,10 @@ dir.create("MovementData/UDs/nonFlying_dBB_graceExperienced")
 lapply(uds_indDay[1:2], function(fl){
   print(fl)
   ud <- readRDS(fl)
-  # add common id and rename dbb layer
-  MBid_indiv <- gsub(".*dailyDBBcoordinatesSPDF_|.rds","",fl)
-  ud$commonID <- paste(MBid_indiv, as.character(ud$date), sep="_")
-  names(ud)[names(ud)=="layer"] <- "dbb_val"
+  # add common id and rename dbb layer ## NOT NECESSARY ANYMORE, ADDED commonID AND dBBvalue WHEN CREATING THE SPDF
+  # MBid_indiv <- gsub(".*dailyDBBcoordinatesSPDF_|.rds","",fl)
+  # ud$commonID <- paste(MBid_indiv, as.character(ud$date), sep="_")
+  # names(ud)[names(ud)=="layer"] <- "dbb_val" # NOW: "dBBvalue" # I CHENGED IT BELOW
   # add empty columns for grace times
   ud@data[,c("grace_layer","start_graceCollection","end_graceCollection")] <- as.character(NA)
   
@@ -72,8 +72,8 @@ lapply(uds_indDay[1:2], function(fl){
     ud_gr$grace_tws <- extract(graceLayer, ud_gr, method="bilinear") 
     return(as.data.frame(ud_gr))
   })))
-  # step 2: multiply the grace value by the dbb_val (occurrence) to obtain the grace experienced in each DBB pixel
-  ud_grace$graceExperienced <- ud_grace$dbb_val * ud_grace$grace_tws
+  # step 2: multiply the grace value by the dBBvalue (occurrence) to obtain the grace experienced in each DBB pixel
+  ud_grace$graceExperienced <- ud_grace$dBBvalue * ud_grace$grace_tws
   
   # save output (still multiple rows/pixels per day)
   saveRDS(ud_grace, file=paste0("MovementData/UDs/nonFlying_dBB_graceExperienced/dailyDBBgrace_",MBid_indiv,".rds"))
@@ -88,7 +88,7 @@ ud_grace_fls <- list.files("MovementData/UDs/nonFlying_dBB_graceExperienced", fu
 
 all_indivDailyGraceLS <- lapply(ud_grace_fls, function(f)try({
   udg <- readRDS(f)
-  udg_day <- cbind(aggregate(cbind(dbb_val, graceExperienced) ~ commonID + date, data=udg, sum),
+  udg_day <- cbind(aggregate(cbind(dBBvalue, graceExperienced) ~ commonID + date, data=udg, sum),
         grace_layer=aggregate(grace_layer ~ commonID, data=udg, unique)[,2])
   return(udg_day)
 }))
