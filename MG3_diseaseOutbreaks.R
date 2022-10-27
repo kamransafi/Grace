@@ -65,6 +65,16 @@ summary(outb_grace$grace_tws)
 saveRDS(outb_grace, file="DiseaseOutbreaks_Louis/outbreaksDF_grace.rds")
 
 
+#___________________________________
+# Some basic analysis
+outb_grace <- readRDS("DiseaseOutbreaks_Louis/outbreaksDF_grace.rds")
+# what diseases do we have?
+table(outb_grace$disease[which(outb_grace$humans_affected>1)])
+summary(outb_grace$humans_affected)
+boxplot(outb_grace$grace_tws~outb_grace$disease)
+
+
+
 #__________________
 ## Old loop script, in which days that did not fall within any of the collection period would get excluded
 # for(i in 1:nrow(outb)){
