@@ -26,9 +26,9 @@ Specifically, the code looks for duplicated combinations of either individualID-
 
 -   `M4_removeOutliers_plotGlobalDistribution.R`: this script remove outliers from the individual move objects saved in the previous step. Outliers are identifier and filtered out based on the distribution of ground speeds within each study. We identify the 99.95% quantile in speed. If this quantile corresponds to a speed value \> 50 m/s we identify the higher quantile that is \< 50 m/s and remove recursively (with a while loop) all observations above this threshold. The reason for choosing 50 m/s as threshold is that in horizontal flight, swifts and brazilian bats (Teague) are considered the fastest flyers with 110 and 160 km/h (44.4 m/s). <https://en.wikipedia.org/wiki/Fastest_animals> After filtering out the outliers, the spatial distribution of the trajectories of each study are plot on a global maps in groups of 100 studies. The files produced in this script are stored in the folder "MoveObjects_1hour_noOutliers" and named as "MBid_indiv.rds". (Martina)
 
--   `M5_IndivRefTable_addLocomotoryMode.R`: this script applies function to create a reference table per individual including nb of days tracked, total and daily nb of gps points, mean timelag per day, total tracking time etc. Also the species get associated to a locomotory mode according to the species lists downloaded from IUCN. (Anne)
+-   `M5_IndivRefTable_addLocomotoryMode.R`: this script applies function to create a reference table per individual including nb of days tracked, total and daily nb of gps points, mean timelag per day, total tracking time, etc (Using `referenceTable_Individuals()`). Also the species get associated to a locomotory mode according to the species lists downloaded from IUCN.  (Anne)
 
--   `M6_applyDailyMovementFunctions.R`: this script applies the functions written by Anne to calculate cumulative daily distance travelled, daily maximum net displacement, daily motion variance, daily UDs (in the doing). (Martina & Anne)
+-   `M6_applyDailyMovementFunctions.R`: this script applies the functions written by Anne to calculate cumulative daily distance travelled, daily maximum net displacement (using  `dailyDispl()`), daily motion variance, daily dBB and daily UDs (and some derived metrics as area, centroids) (using `dailydBBud()`). Also identifying migration/non-migration days is done in this script. (Martina & Anne)
 
 ### METRIC FUNCTIONS
 
@@ -50,14 +50,13 @@ Martina and me (Anne) decided that the best way to proceed is:
 
 -   `referenceTableStudies()`: get a reference table with 1 line per individual. I.e. loop around all individuals and rbind result. Large table can be used e.g. to find duplicated individuals across studies, add column with info why individuals got removed from analysis. Individuals with multiple tags/deployments are kept in one lines and the different tag IDs/deployment IDs separated by a "\|". Gaps between deployments will be dealt with and filtered out at a later stage as all metrics will be calculated per day and associated to the number of locations. (Anne)
 
--   `referenceTable_Individuals()`: gives one table per individual. Including MBid, individual, tag, species, date, tracking_duration_in_days, GPSpts_total, GPSSpts_day, median_timelag_mins_day. Saves table as "RefTableIndiv_MBid_indiv.name.rds". (Anne) *(removed "tag id" for now as it needs time to be adapted for individuals with multiple tags)*
+-   `referenceTable_Individuals()`: gives one table per individual. Including MBid, individual, tag, species, date, tracking_duration_in_days, GPSpts_total, locsperday, median_timelag_mins_day, locomotion mode. Saves table as "RefTableIndiv_MBid_indiv.name.rds". (Anne) *(removed "tag id" for now as it needs time to be adapted for individuals with multiple tags)*
 
 #### Overview of functions for movement metrics
 
 -   `dailyDispl()`: includes the calculation of: *cumulativeDist_km*: sum of all step lenghts (in Km) per day; *maxNetDispl_km*: maximum distance (in Km) between any 2 locations per day & *straightnessIndex*: maxNetDispl_km/cumulativeDist_km. between 0-1, 1 is moving in straight line, idea is to use it as an indication of migratory day, cut-off value to be determined. Saves table per individual called "dailyDisplacement\_\_MBid_indiv.name.rds". (Anne)
 
--   `dailydBBud()`: calculates mean(?) daily motion variance. Saved as "dailyMotionVar\_.....rds". Removes days that have less locations than "minLocationsDay", by setting \@interest==F. Calculates dBB per day looping through the splitted dbbvarburst object. Calculates ud size, geometric centroid of UD and weighted lat/long coords of UD, saved as "dailyUDcalc\_...rds". Extracts coordinates and values from dbb, as SPDF, saved as "dailyDBBcoordinatesSPDF\_...rds". (Anne)
-
+-   `dailydBBud()`: calculates mean(?) daily motion variance. Saved as "dailyMotionVar\_.....rds". Removes days that have less locations than "minLocationsDay", by setting \@interest==F. Segments longer than 5h are also excluded by setting \@interest==F. Calculates dBB per day looping through the splitted dbbvarburst object. Calculates ud size, geometric centroid of UD and weighted lat/long coords of UD, saved as "dailyUDcalc\_...rds". Extracts coordinates and values from dbb, as SPDF, saved as "dailyDBBcoordinatesSPDF\_...rds". (Anne)
 
 ### GRACE VARIABLES
 
@@ -71,15 +70,14 @@ The data we get from GRACE are a measure of "monthly change in total water stora
 
 -   `G1_open_grace_data_asBRICK_formatCollectionPeriods.R`: in this script the .nc files are opened as rasters and all grace layers are formatted in one big brick file, where each layer represents one grace collection period (file named "GRACEraw_atlantic_allYearsAllMonths_brick.tif"). The layers in the brick are named after the time slot in the corresponding .nc file. Grace "times" represent the middle of point of the collection period. In this script we also format the table provided by Eva Boergens, where each grace time is associated to two columns indicating the exact start and end of the collection period used to build the layer (file named "grace_tws_collectionPeriods.rds"). This table is used in the script MG1 to associate the daily movement data to the correct grace layer. (Martina)
 
-
 ### SCRIPTS - PROCESSING STEPS MOVEMENT METRICS & GRACE
 
--   `MG1_weightedGRACE_per_dailyDBB_byGRACEcollectionPeriod.R`: this script calculates the weighted daily GRACE experienced per individual. To do this we: 
-    1. assign each day of movement to the correct grace layer using the table of collection periods sent by Eva. Movement metrics in days that are outside the grace collection period (before April 2002 and after May 2022) are excluded. Movement metrics in days that correspond to temporal gaps during the grace collection period are also excluded;
-    2. annotate the DBB file (spatial points df) of each individual (files named "dailyDBBcoordinatesSPDF_MBid_indiv.rds") with the correct grace layer (extracted grace value corresponding to each DBB pixel in each day);
-    3. multiply the extracted grace value by the column "layer" (dbb_val) and save each file per individual (files "dailyDBBgrace_MBid_indiv.rds"), we call this variable "graceExperienced".
-    4. finally sum the graceExperienced per day, to obtained a daily value per individual. All days of all individuals are merged in one table named "nonFlying_allDailyGraceExperienced.rds".
-(Martina)
+-   `MG1_weightedGRACE_per_dailyDBB_byGRACEcollectionPeriod.R`: this script calculates the weighted daily GRACE experienced per individual. To do this we:
+
+    1.  assign each day of movement to the correct grace layer using the table of collection periods sent by Eva. Movement metrics in days that are outside the grace collection period (before April 2002 and after May 2022) are excluded. Movement metrics in days that correspond to temporal gaps during the grace collection period are also excluded;
+    2.  annotate the DBB file (spatial points df) of each individual (files named "dailyDBBcoordinatesSPDF_MBid_indiv.rds") with the correct grace layer (extracted grace value corresponding to each DBB pixel in each day);
+    3.  multiply the extracted grace value by the column "layer" (dbb_val) and save each file per individual (files "dailyDBBgrace_MBid_indiv.rds"), we call this variable "graceExperienced".
+    4.  finally sum the graceExperienced per day, to obtained a daily value per individual. All days of all individuals are merged in one table named "nonFlying_allDailyGraceExperienced.rds". (Martina)
 
 -   `MG2_averageByGracePeriods_buildModelDF.R`: In the doings... this script will merge the table containing the daily movement metrics (daily UD size, daily cum distance and daily directness) with the table containing the daily GRACE experienced. All these variables will be averaged by grace collection periods (usually about a month) to build the final model dataframe. (Martina)
 
@@ -153,8 +151,7 @@ s(time) *(time since first measurement of Grace)*
         -   var
 
         -   etc
-        
-        
+
 ### FIGURES
 
 -   `Fig1_mapSept22.R`: This script builds a first descriptive figure. The monthly average change and the monthly variance of this change were averaged across all months. The pixels in the map were coloured according to these two variables (the legend being a 2D matrix of colours):
@@ -166,7 +163,6 @@ s(time) *(time since first measurement of Grace)*
 Areas with predictable increase in water storage are very rare (dark green), most areas (magenta and turquoise) experience large fluctuations in change of water storage (increase or decrease by a changing amount), and many others (yellow) are predictably drying up...
 
 Some note about the movement data we used: the trajectories that you see in the map are from 15'173 individuals, 349 species and 623 movebank studies. The storks seem to be a very promising dataset to study movement response to the predictability in water storage, as their data cover very large areas and in Africa cover some areas of high predictability (in turquoise) and many areas of high fluctuations both in positive and negative change (yellow and magenta areas).
-
 
 ##### **ADDITIONAL FOLLOW UP PROJECTS:**
 
