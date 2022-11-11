@@ -1,6 +1,11 @@
 library('move')
 library('lubridate')
 library("rgeos") #gCentroid
+library(data.table)
+
+########
+# FOR NEXT RUN, SPLIT UP CODE IN STEPS, AND SAVE EACH STEP. hopefully that will work without constantily breaking the code
+########
 
 # bursted move object by days
 # calculates dbb variance on bursted move object
@@ -10,46 +15,37 @@ library("rgeos") #gCentroid
 # calculates ud size, centroid and weighted lat/long coords, saved as "dailyUDcalc_...rds" 
 # extracts coordinates and values from dbb, in SPDF, saved as "dailyDBBcoordinatesSPDF_...rds"
 
+# pathToMV <- "/home/anne/Documents/GRACEdata/MoveObjects_1hour_noOutliers/927364554_Silas + - DER A7N66 (e-obs 7045).rds" #
+# 18957668_Fanti_111.rds
+# pathToMV <- flsMV[470]
 
-### here to...##
-files <- list.files("~/GIT_SYNC/Grace/NoPush/testIndivsForUD/storks",full.names=T) #wilddogs buffaloes
-## storks 1 only 5 loc/day good indiv to check stop script if not enough points
-# moveObj <- readRDS(files[[10]])
-
-# pathToMV <- files[10]
-rasterLayer <- 1000 ## resolution in mts of raster
-locationError <- 20 ## location error
-extExpansionInMts <- 50000 ## expansion in all 4 direction of the raster for dbb calculation
-pathToOutputFolder <- "~/GIT_SYNC/Grace/NoPush/outputTestRuns/"
-minLocationsDay <- 8 # min locations required per day
-functionDailyMotionVariance <- "mean" # how to sumarize the daily variance
-UDpercentage <- 0.99 ## UD used to calculate the area, centroid, coordinates extracted
-
-##################
-is.error <- function(x) inherits(x, "try-error")
-
-results <- lapply(files[1:2],function(x)try({ #x is pathToMV
-  dailydBBud(x,pathToOutputFolder, rasterLayer,locationError, extExpansionInMts,minLocationsDay,functionDailyMotionVariance,UDpercentage) # try catch because if individual contains 0 days with enough locations, I build in a stop
-}))
-
-table(vapply(results, is.error, logical(1)))
-names(results) <- seq_along(results)
-results[vapply(results, is.error, logical(1))]
-files[1:2][vapply(results, is.error, logical(1))]
-
-###### ....here goes into MX_UDcalcuc.R file #######################
-
-dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, extExpansionInMts,minLocationsDay,functionDailyMotionVariance,UDpercentage){
+dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, extExpansionInMts,minLocationsDay,functionDailyMotionVariance,UDpercentage,pathToReferenceTables,pathTodailyDisplacements,minKM,minSI){
   # start_time <- Sys.time()
+  print(pathToMV)
   moveObj <- readRDS(pathToMV)
   indiv <- moveObj@idData$individual.local.identifier
   if(grepl("/", indiv)==T){indiv <- gsub("/","-",indiv)}
+  # if(grepl(" ", indiv)==T){indiv <- gsub(" ","",indiv)}
+  
+  if(n.locs(moveObj)<31){stop(paste("individual contains less than 32 locations"))}
+  
+  ## reading in the reference table of the individual, and the dailyDisplacement for flying animals
+  pathToMVsplit <- unlist(strsplit(pathToMV, split="/"))
+  indvMB <- grep(".rds", pathToMVsplit, value = TRUE) 
+  # if(grepl(" ", indvMB)==T){indvMB <- gsub(" ","",indvMB)}
+  refTab <- readRDS(paste0(pathToReferenceTables,"/RefTableIndiv_",indvMB))
+  if(unique(refTab$Locomotion)=="flying"){
+    dipslTab <- readRDS(paste0(pathTodailyDisplacements,"/dailyDisplacement_",indvMB))
+    daysToExclude <- dipslTab$date[dipslTab$straightnessIndex>minSI & dipslTab$maxNetDispl_km>minKM]
+  }
+  if(unique(refTab$Locomotion)%in%c("unknownSps","excluded")){stop(paste("locomotion unknownSps or excluded"))}
   
   roundTS <- floor_date(timestamps(moveObj), "day") 
   locPerDayDF <- data.frame(table(roundTS))
   locPerDayDF$roundTS <- as_datetime(as.character(locPerDayDF$roundTS), tz="UTC", format="%Y-%m-%d")
   daysToInclude <- locPerDayDF$roundTS[locPerDayDF$Freq>=minLocationsDay]
-  if(length(daysToInclude)==0){stop(paste("individual: ",  moveObj@idData$individual.local.identifier,"contains 0 days with min nb of locations"))}#jump this individual with warning message? saving it in a table?...
+  if(unique(refTab$Locomotion)=="flying"){daysToInclude <- daysToInclude[!daysToInclude%in%daysToExclude]}
+  if(length(daysToInclude)==0){stop(paste("individual contains 0 days with min nb of locations"))}
   dailyBurst <- burst(moveObj,f=as.character(roundTS[-length(roundTS)]))
   dailyBurst_c <- spTransform(dailyBurst,center=T)
   dailydBBvar <- brownian.motion.variance.dyn(dailyBurst_c, location.error=locationError,margin=11, window.size=31)
@@ -59,7 +55,7 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
   ## daily motion variance ## 
   ###########################
   motionVar <- data.frame(date= floor_date(timestamps(moveObj), "day"), motVar = getMotionVariance(dailydBBvar))
-  aggMotionVar <- aggregate(motionVar$motVar, by=list(motionVar$date), FUN=functionDailyMotionVariance)
+  aggMotionVar <- aggregate(motionVar$motVar, by=list(motionVar$date), FUN=functionDailyMotionVariance, na.rm=T)
   
   aggMotionVarNbLoc <- merge(aggMotionVar, locPerDayDF, by.x="Group.1",by.y="roundTS", all.x=T)
   
@@ -77,6 +73,7 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
   #####################################################################
   ## selecting days with minimum nb of locations (=minLocationsDay)  ##
   #####################################################################
+  dailydBBvar@interest[timeLag(moveObj,"hours")>5] <- FALSE ## excluding segments longer than 5 hours from the dbbmm
   dailydBBvar@interest[!floor_date(timestamps(dailydBBvar), "day") %in% daysToInclude] <- FALSE # calc UD only on days with enough points
   dailydBBvarL <- split(dailydBBvar)
   ## removing days with all @interest==FALSE
@@ -85,12 +82,19 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
   
   #################
   ## daily dBBMM ##
-  ################
-  dailydBBL <- lapply(dailydBBvarL_sel, function(dBBvar){
-    db_r <- raster(ext=extent(dBBvar)+c(-extExpansionInMts,extExpansionInMts,-extExpansionInMts,extExpansionInMts), resolution=1000, crs=projection(dBBvar),vals=1) #creating an empty raster, as this is the only option not giving constantly error because of the extent being to small
-    brownian.bridge.dyn(dBBvar, raster=db_r,location.error=rep(20,length(dBBvar)),margin=11, window.size=31)
+  #################
+  dailydBBL0 <- lapply(dailydBBvarL_sel, function(dBBvar){try({
+  # dailydBBL0 <- lapply(1:length(dailydBBvarL_sel), function(x){try({ # removes names from putput list! and code does not work downstream!!
+  #   print(x)
+  #   dBBvar <- dailydBBvarL_sel[[x]]
+    if(max(dBBvar@means,na.rm=T)>1000000){stop("to high variance estimates")}
+    db_r <- raster(ext=extent(dBBvar)+c(-extExpansionInMts,extExpansionInMts,-extExpansionInMts,extExpansionInMts), resolution=rasterLayer, crs=projection(dBBvar),vals=1) #creating an empty raster, as this is the only option not giving constantly error because of the extent being to small
+    brownian.bridge.dyn(dBBvar, raster=db_r,location.error=rep(locationError,length(dBBvar)),margin=11, window.size=31, time.step=45/15, verbose=F)
   })
-  
+    })
+  is.error <- function(x) inherits(x, "try-error")
+  dailydBBL <- dailydBBL0[!vapply(dailydBBL0, is.error, logical(1))]
+ 
   ##############
   ## daily UD ##
   ##############
@@ -103,7 +107,9 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
   ###################
   UDsizeL <- lapply(dailyUDL, function(ud){
     UDsel <- ud<=UDpercentage
-    UDsizeKm2 <- cellStats(UDsel, 'sum')
+    # UDsizeKm2 <- cellStats(UDsel, 'sum') # this only works if rasterLayer==1km
+    UDsizem2 <- cellStats(UDsel, 'sum')*rasterLayer*rasterLayer
+    UDsizeKm2 <- UDsizem2/1000000
     return(UDsizeKm2)
   })
   
@@ -130,6 +136,7 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
   ## daily dBB weighted mean coordinates ##
   ########################################
   dBBwCoordinatesL <- lapply(1:length(dailydBBL), function(x){ 
+    # print(x)
     ud <- dailyUDL[[x]]
     dbb <- dailydBBL[[x]]
     dbb[ud>UDpercentage] <- NA
@@ -141,7 +148,7 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
     wMeanLL <- data.frame(date=names(dailydBBL[x]), wMeanLong=wMeanLong, wMeanLat=wMeanLat)
     return(wMeanLL)
   })
-  dBBwCoordinates <- do.call("rbind",dBBwCoordinatesL)
+  dBBwCoordinates <- do.call("rbind", dBBwCoordinatesL)
   # dBBwCoordinates$date <- as_datetime(as.character(gsub("X","",dBBwCoordinates$date)), tz="UTC", format="%Y.%m.%d")
   
   
@@ -174,10 +181,12 @@ dailydBBud <-  function(pathToMV,pathToOutputFolder, rasterLayer,locationError, 
     dbb_spdf <- as(dbb,"SpatialPointsDataFrame")
     dbb_spdf_ll <- spTransform(dbb_spdf,projection(moveObj))
     dbb_spdf_ll$date <- as_datetime(as.character(gsub("X","",names(dailydBBL[x]))), tz="UTC", format="%Y.%m.%d")
+    dbb_spdf_ll$commonID <- paste(moveObj@idData$study.id, indiv, as_datetime(as.character(gsub("X","",names(dailydBBL[x]))), tz="UTC", format="%Y.%m.%d"), sep="_")
     return(dbb_spdf_ll)
   })
   
   dBBcoordinates_spdf <- do.call("rbind",dBBcoordinatesL)
+  names(dBBcoordinates_spdf)[1] <- "dBBvalue"
   
   saveRDS(dBBcoordinates_spdf, file=paste0(pathToOutputFolder,"dailyDBBcoordinatesSPDF_",moveObj@idData$study.id,"_",indiv,".rds"))
   # end_time <- Sys.time()
