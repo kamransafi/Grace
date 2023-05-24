@@ -21,16 +21,17 @@ graceTimes <- readRDS("RemoteSensingData/grace_tws_collectionPeriods.rds")
 graceTimes <- graceTimes[order(graceTimes$grace_time),]
 graceTimes$grace_seq <- 1:nrow(graceTimes)
 # List individual files containing infos of daily UDs
-uds_indDay <- list.files("MovementData/MovementMetrics/nonFlying_dBB_spdf", full.names = T)
+uds_indDay <- list.files("MovementData/MovementMetrics/dBB_spdf_allInds_1km", full.names = T)
+uds_indDay <- list.files("MovementData/MovementMetrics/dBB_spdf_1km_3", full.names = T)
+
 
 # Create directory to store result
-dir.create("MovementData/MovementMetrics/nonFlying_dBB_graceExperienced")
-
+dir.create("MovementData/MovementMetrics/dBB_graceExperienced_allInds_1km")
 
 #_______________
 ## step 1 and 2: extract values from the correct grace layer and multiply it by the dbb value per pixel
 
-ud_grace_fls <- list.files("MovementData/MovementMetrics/nonFlying_dBB_graceExperienced", full.names = T)
+ud_grace_fls <- list.files("MovementData/MovementMetrics/dBB_graceExperienced_allInds_1km", full.names = T)
 flsToDo <- uds_indDay[!gsub(".*SPDF_|.rds","",uds_indDay) %in% gsub(".*grace_|.rds","",ud_grace_fls)]
 
 results <- lapply(flsToDo, function(fl)try({
@@ -45,8 +46,8 @@ results <- lapply(flsToDo, function(fl)try({
   ud <- ud[ud@data$date >= min(graceTimes$start_collection) & 
              ud@data$date <= max(graceTimes$end_collection),]
   if(nrow(ud)>0){
-    # for days within the collection period difference in time = 0 and inCollectionnPeriod="yes", 
-    # for days outside the collection period we will measure time difference in days and inCollectionnPeriod="no"
+    # for days within the collection period difference in time = 0 and inCollectionPeriod="yes", 
+    # for days outside the collection period we will measure time difference in days and inCollectionPeriod="no"
     ud$timeDiff_daysFromCollection <- 0
     ud$inCollectionPeriod <- "yes"
     
@@ -81,7 +82,7 @@ results <- lapply(flsToDo, function(fl)try({
     ud_grace$graceExperienced <- ud_grace$dBBvalue * ud_grace$grace_tws
     
     # save output (still multiple rows/pixels per day)
-    saveRDS(ud_grace, file=paste0("MovementData/MovementMetrics/nonFlying_dBB_graceExperienced/dailyDBBgrace_",MBid_indiv,".rds"))
+    saveRDS(ud_grace, file=paste0("MovementData/MovementMetrics/dBB_graceExperienced_allInds_1km/dailyDBBgrace_",MBid_indiv,".rds"))
   }
 }))
 ## Check reasons for errors:
@@ -112,7 +113,7 @@ table(vapply(results, is.error, logical(1)))
 ## step 3: sum the grace experienced in each DBB pixel per day, to obtain one value of grace experienced per day
 
 # List files with grace experienced per DBB pixel per day
-ud_grace_fls <- list.files("MovementData/MovementMetrics/nonFlying_dBB_graceExperienced", full.names = T)
+ud_grace_fls <- list.files("MovementData/MovementMetrics/dBB_graceExperienced_allInds_1km", full.names = T)
 
 all_indivDailyGraceLS <- lapply(ud_grace_fls, function(f)try({
   udg <- readRDS(f)
@@ -130,7 +131,7 @@ all_indivDailyGraceLS[vapply(all_indivDailyGraceLS, is.error, logical(1))]
 
 # rbind the list and save
 all_indivDailyGraceExperienced <- as.data.frame(rbindlist(all_indivDailyGraceLS))
-saveRDS(all_indivDailyGraceExperienced, file="MovementData/MovementMetrics/nonFlying_allDailyGraceExperienced.rds")
+saveRDS(all_indivDailyGraceExperienced, file="MovementData/MovementMetrics/dailyGraceExperienced_allInds_1km.rds")
 
 
 

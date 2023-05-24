@@ -144,7 +144,11 @@ library(viridis)
 
 setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/")
 load("./FirstMap_Sept22/rastersForBackgroundMap.rdata")
+# Import the actual trajectories
 indFls <- list.files("MovementData/MoveObjects_1hour_noOutliers", full.names=T)
+# and the table including daily individual infos, locomotory mode, and ud location
+daily_metrics <- readRDS("MovementData/MovementMetrics/daily_movementMetrics_allInds_200m.rds")
+
 
 refTab <- readRDS("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/MovementData/referenceTableStudies_ALL_excludedColumn.rds")
 refTab <- refTab[which(refTab$excluded=="no"),]
@@ -210,8 +214,15 @@ setwd("/home/mscacco/ownCloud/Martina/ProgettiVari/GRACE/")
 newGrace <- readRDS(file="./RemoteSensingData/grace_meanOfMonthlyAvgVar.rds")
 # import background maps
 load("./FirstMap_Sept22/rastersForBackgroundMap.rdata")
-# import individuals
+# Import the actual trajectories per individual
 indFls <- list.files("MovementData/MoveObjects_1hour_noOutliers", full.names=T)
+# and the table including daily individual infos, locomotory mode, and ud location
+daily_metrics <- readRDS("MovementData/MovementMetrics/daily_movementMetrics_allInds_200m.rds")
+coordinates(daily_metrics) <- ~ UDcentroidsLongitude + UDcentroidsLatitude
+proj4string(daily_metrics) <- "+proj=longlat +ellps=WGS84 +no_defs"
+# mask the UD spatial dataframe using GRACE (omit UDs that are associated to NA grace values)
+daily_metrics$grace <- extract(newGrace[[1]], daily_metrics)
+daily_metrics_nona <- daily_metrics[complete.cases(daily_metrics$grace),]
 
 #----------------------------------------
 # Define 2D color palette (Kami's script)
@@ -300,5 +311,14 @@ for(f in indFls){
   }
 dev.off()
 
+#--------------------------
+# Plot UD locations on top
+
+jpeg("./FirstMap_Sept22/final/nat_2DpaletteM_yellowGreenMagentaCyan_dailyUDlocations.jpeg", width=120, height=120/2, units="cm", res=500)
+plot(extent(-180,180,-90,90), axes=F, xlab="", ylab="", asp=1) #bty="n"
+plotRGB(nat, add=T)
+plot(rCol, col=colorRampPalette(colVect)(121), add=T, legend=F, alpha=.65)
+points(daily_metrics_nona, col=alpha("black",.7), cex=.5, pch=19)
+dev.off()
 
 

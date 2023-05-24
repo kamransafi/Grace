@@ -15,24 +15,31 @@ library(lubridate)
 # CREATE A DATAFRAME FOR THE MODELS
 
 # Import table with metrics and grace experienced per day and per individual
-daily_graceExp <- readRDS("MovementData/MovementMetrics/nonFlying_allDailyGraceExperienced.rds")
+daily_graceExp <- readRDS("MovementData/MovementMetrics/dailyGraceExperienced_allInds_1km.rds")
 # and the table including individual infos, locomotory mode, daily movement metrics and ud size
-daily_metrics <- readRDS("MovementData/MovementMetrics/nonFlying_metrics.rds")
+daily_metrics <- readRDS("MovementData/MovementMetrics/daily_movementMetrics_allInds_200m.rds")
 
 # merge the two daily tables
-dailyDF <- merge(daily_metrics, daily_graceExp[,-2], by="commonID", all=T)
+#table(daily_graceExp$commonID %in% daily_metrics$commonID)
+dailyDF <- merge(daily_metrics, daily_graceExp[,-2], by="commonID", all.y=T)
 # Create two variables for aggregation, one pasting MBid_individual and one pasting start and end of the grace collection period
 #MBid_indiv <- sapply(lapply(strsplit(daily_graceExp$commonID,"_"),"[",1:2),paste,collapse="_")
 MBid_indiv <- paste(dailyDF$MBid, dailyDF$individual, sep="_")
 graceCollPeriod <- paste(dailyDF$start_graceCollection, dailyDF$end_graceCollection, sep="_")
 
 # Average variables by collection period (more or less monthly)
-
+#test <- aggregate(cbind(UDsizeKm2,graceExperienced) ~ MBid_indiv + graceCollPeriod, data=dailyDF, FUN=mean)
 modelDF <- aggregate(cbind(UDsizeKm2,cumulativeDist_km,motionVariance,graceExperienced,UDwMeanLongitude,UDwMeanLatitude,locsPerDay) 
                      ~ MBid_indiv + graceCollPeriod + species + Locomotion + grace_layer + grace_seq,
                      data=dailyDF, FUN=mean)
 modelDF$grace_seq <- as.numeric(modelDF$grace_seq)
 modelDF$grace_layer <- as.Date(modelDF$grace_layer)
+
+# Some checks
+length(unique(modelDF$MBid_indiv)) # number of individuals included in the model (non only NA values associated to grace)
+table(modelDF$Locomotion) # n. of days per locomotion type
+table(table(modelDF$MBid_indiv)>1) #how many observations/months per individual
+head(sort(table(modelDF$MBid_indiv), decreasing=T))
 
 #___________________
 ## explore response variables
@@ -44,9 +51,8 @@ plot(test[,2]~test[,1], type="b",
      xlab="Grace sequence", ylab="Grace")
 # unrealistically high UD sizes
 udQuant <- quantile(modelDF$UDsizeKm2, seq(0,1,0.001))
-plot(udQuant, ylim=c(0,1000))
-plot(quantile(modelDF$UDsizeKm2[modelDF$UDsizeKm2 < 500], seq(0,1,0.001)))
-plot(quantile(modelDF$UDsizeKm2[modelDF$UDsizeKm2 < 200], seq(0,1,0.001)))
+plot(udQuant)
+plot(udQuant[udQuant < udQuant["99.4%"]])
 modelDF[modelDF$UDsizeKm2 > 200,]
 summary(modelDF$UDsizeKm2[modelDF$species == "Felis catus"])
 summary(modelDF$UDsizeKm2[modelDF$species == "Alces alces"])
@@ -55,7 +61,7 @@ summary(modelDF$UDsizeKm2[modelDF$species == "Lycaon pictus"])
 summary(modelDF$UDsizeKm2[modelDF$species == "Vulpes lagopus"])
 summary(modelDF$UDsizeKm2[modelDF$species == "Canis lupus"])
 # large cumulative distances correspond to large UD sizes, so the filter will work on both
-distQuant <- quantile(modelDF$cumulativeDist_km, seq(0,1,0.001))
+distQuant <- quantile(modelDF$cumulativeDist_km, seq(0,1,0.01))
 plot(distQuant, ylim=c(0,100))
 modelDF[modelDF$cumulativeDist_km > 30,]
 # very large motion variance (directness) also correspond to very large UD sizes
@@ -63,16 +69,13 @@ dirQuant <- quantile(modelDF$motionVariance, seq(0,1,0.001))
 plot(dirQuant, ylim=c(0,40000))
 modelDF[modelDF$motionVariance > 35000,]
 
-# remove all observations with UD sized > 99.7% == 175 Km2 (only 20 observations)
-# and remove study 650173035 (test study on cats, and UD size > 7000)
-modelDF_sub <- modelDF[which(modelDF$UDsizeKm2 < udQuant["99.7%"]),]
-modelDF_sub <- modelDF_sub[grep("650173035", modelDF_sub$MBid_indiv, invert=T),]
+# remove all observations with UD sized > 99.4% == 769.8 Km2 (only 24 observations)
+modelDF_sub <- modelDF[which(modelDF$UDsizeKm2 < udQuant["99.4%"]),]
 
 # For now remove swimming species (one species of seal) and correct error in locomotion of bos genus (walking not flying)
-unique(modelDF_sub$species[modelDF_sub$Locomotion=="swimming"])
-unique(modelDF_sub$species[modelDF_sub$Locomotion=="flying"])
+# unique(modelDF_sub$species[modelDF_sub$Locomotion=="swimming"])
+# unique(modelDF_sub$species[modelDF_sub$Locomotion=="flying"])
 modelDF_sub <- modelDF_sub[which(modelDF_sub$Locomotion!="swimming"),]
-modelDF_sub$Locomotion[grep("Bos", modelDF_sub$species)] <- "walking"
 #8241619, 172506851, 896410936, 1233598831 Bos studies (cattle, should they be included?)
 
 # Calculate UD size differences from a species average UD size
@@ -91,11 +94,12 @@ modelDF_sub <- as.data.frame(rbindlist(lapply(sp_ls, function(sp){
 
 par(mfrow=c(2,2))
 hist(modelDF_sub$UDsizeKm2, breaks="FD")
+hist(log(modelDF_sub$UDsizeKm2), breaks="FD")
 hist(modelDF_sub$diff_fromAvgUd, breaks="FD")
 hist(modelDF_sub$diff_fromAvgUd_scale, breaks="FD")
 hist(modelDF_sub$diff_fromAvgUd_perc, breaks="FD")
-hist(scale(modelDF_sub$diff_fromAvgUd_perc), breaks="FD")
 
+saveRDS(modelDF_sub, file="MovementData/MovementMetrics/modelDataset.rds")
 
 #________
 # MODELS
@@ -103,10 +107,19 @@ hist(scale(modelDF_sub$diff_fromAvgUd_perc), breaks="FD")
 
 library(mgcv)
 
+modelDF_sub <- readRDS("MovementData/MovementMetrics/modelDataset.rds")
+
 modelDF_sub$species <- as.factor(modelDF_sub$species) # needed for random effect
 modelDF_sub$MBid_indiv <- as.factor(modelDF_sub$MBid_indiv)
-plot(quantile(modelDF_sub$graceExperienced, seq(0,1,0.001)))
+modelDF_sub$Locomotion <- as.factor(modelDF_sub$Locomotion)
+
+graceQuant <- quantile(modelDF_sub$graceExperienced, seq(0,1,0.001))
+plot(graceQuant)
 hist(modelDF_sub$graceExperienced, breaks="FD")
+plot(log(UDsizeKm2)~locsPerDay, data=modelDF_sub)
+
+modelDF_sub <- modelDF_sub[modelDF_sub$graceExperienced >= graceQuant["0.5%"] &
+                             modelDF_sub$graceExperienced <= graceQuant["99.9%"],]
 
 #___________________
 ## modelling UD size
@@ -120,19 +133,44 @@ hist(modelDF_sub$graceExperienced, breaks="FD")
 # UDsize_boxcox <- BoxCox(modelDF_sub$UDsizeKm2, lambda)
 # hist(UDsize_boxcox, breaks="FD")
 
-udMod_ind <- gam(log(UDsizeKm2) ~
-                   s(graceExperienced) +
-                   s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
-                   grace_seq + #(time, since first measurement of Grace)
-                   #s(month_grace_layer, bs = "cc") + s(year_grace_layer) +
-                   #species +
-                   UD_speciesAvg +
-                   locsPerDay + #to account for UD size varying depending on number of daily locations
-                   #Locomotion #(locomotory.mode)
-                   s(MBid_indiv, bs="re"), #s(species, bs="re"), s(MBid_indiv, bs="re")#(random factors)
-                 #correlation=corAR1(form=~1|grace_layer),
-                 data=modelDF_sub,
-                 na.action=na.fail) #by default
+udMod_spec_walk <- gam(log(UDsizeKm2) ~
+                         s(graceExperienced) +
+                         s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
+                         grace_seq + #(time, since first measurement of Grace)
+                         UD_speciesAvg +
+                         locsPerDay + #to account for UD size varying depending on number of daily locations
+                         s(species, bs="re"), #s(species, bs="re"), s(MBid_indiv, bs="re")#(random factors)
+                       data=modelDF_sub[which(modelDF_sub$Locomotion=="walking"),],
+                       na.action=na.fail)
+udMod_spec_fly <- gam(log(UDsizeKm2) ~
+                        s(graceExperienced) +
+                        s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
+                        grace_seq + #(time, since first measurement of Grace)
+                        UD_speciesAvg +
+                        locsPerDay + #to account for UD size varying depending on number of daily locations
+                        s(species, bs="re"), #s(species, bs="re"), s(MBid_indiv, bs="re")#(random factors)
+                      data=modelDF_sub[which(modelDF_sub$Locomotion=="flying"),],
+                      na.action=na.fail)
+plot.gam(udMod_spec_walk, select=1, shade=T)
+plot.gam(udMod_spec_fly, select=1, shade=T)
+par(mfrow=c(2,2))
+gam.check(udMod_spec_walk)
+gam.check(udMod_spec_fly)
+
+
+udMod_spec <- gam(log(UDsizeKm2) ~
+                    s(graceExperienced) +
+                    s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
+                    grace_seq + #(time, since first measurement of Grace)
+                    #s(month_grace_layer, bs = "cc") + s(year_grace_layer) +
+                    #species +
+                    UD_speciesAvg +
+                    locsPerDay + #to account for UD size varying depending on number of daily locations
+                    Locomotion + #(locomotory.mode)
+                    s(species, bs="re"), #s(species, bs="re"), s(MBid_indiv, bs="re")#(random factors)
+                  #correlation=corAR1(form=~1|grace_layer),
+                  data=modelDF_sub,
+                  na.action=na.fail) #by default
 udMod_spec$sp
 udMod_ind$sp
 summary(udMod_spec)
@@ -179,19 +217,19 @@ hist(scale(modelDF_subsub$diff_fromAvgUd_perc, breaks="FD"))
 hist(modelDF_subsub$diff_fromAvgUd_scale, breaks="FD")
 
 
-change_udMod_ind <- gam(diff_fromAvgUd_perc ~
+change_udMod_spec <- gam(diff_fromAvgUd_perc ~
                           s(graceExperienced) +
                           s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
                           grace_seq +
                           locsPerDay + #to account for UD size varying depending on number of daily locations
                           nUds_perSpAvg + #to account for the fact that differences are likely to be bigger if the mean was calculated from more individuals
-                          #Locomotion #(locomotory.mode)
-                          s(MBid_indiv, bs="re"), #s(species, bs="re"), s(MBid_indiv, bs="re") #(random fac)
+                          #Locomotion + #(locomotory.mode)
+                          s(species, bs="re"), #s(species, bs="re"), s(MBid_indiv, bs="re") #(random fac)
                         data=modelDF_subsub,#[-991,],
                         #method="GCV.Cp" #default, otherwise method="REML"
                         na.action=na.fail) #by default
-change_udMod$sp; gam.vcomp(change_udMod)
-summary(change_udMod)
+change_udMod_spec$sp
+summary(change_udMod_spec)
 acf(residuals(change_udMod_spec))
 acf(residuals(change_udMod_ind))
 plot.gam(change_udMod_spec, select=1, shade=T)
@@ -207,54 +245,74 @@ save(change_udMod_spec, change_udMod_ind, file="ModelsResults/models_UDpercChang
 #_______________________________
 ## modelling cumulative distance
 
-distMod <- gam(log(cumulativeDist_km) ~
-                 s(graceExperienced) +
-                 s(UDwMeanLongitude,UDwMeanLatitude) + #(weighted coordinates from dailyUD)
-                 #s(grace_seq) + #(time, since first measurement of Grace)
-                 s(month_grace_layer, bs = "cc") + s(year_grace_layer) +
-                 locsPerDay + #to account for UD size varying depending on number of daily locations
-                 #Locomotion #(locomotory.mode)
-                 s(species, bs="re"), #(random fac)
-               data=modelDF)
-summary(distMod)
-hist(residuals(distMod))
-plot.gam(distMod, select=1, shade=T)
+hist(modelDF_sub$cumulativeDist_km, breaks="FD")
+distQuant <- quantile(modelDF_sub$cumulativeDist_km, seq(0,1,0.001))
+plot(distQuant)
+distQuant
+modelDF_subsub <- modelDF_sub[modelDF_sub$cumulativeDist_km <= distQuant["99.8%"],]
 
-distMod_null <- gam(log(cumulativeDist_km) ~
-                      s(UDwMeanLongitude,UDwMeanLatitude) +
-                      s(month_grace_layer, bs = "cc") + s(year_grace_layer) +
-                      locsPerDay +
-                      #Locomotion
-                      s(species, bs="re"),
-                    data=modelDF)
-summary(distMod)$dev.expl;summary(distMod_null)$dev.expl
-AIC(distMod);AIC(distMod_null)
+
+distMod_walk <- gam(log(cumulativeDist_km) ~
+                 s(graceExperienced) +
+                 s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
+                 grace_seq + #(time, since first measurement of Grace)
+                 locsPerDay + #to account for UD size varying depending on number of daily locations
+                 s(species, bs="re"), #(random fac)
+               data=modelDF_subsub[which(modelDF_subsub$Locomotion=="walking"),],
+               na.action=na.fail)
+summary(distMod_walk)
+hist(residuals(distMod_walk))
+plot.gam(distMod_walk, select=1, shade=T)
+
+distMod_fly <- gam(log(cumulativeDist_km) ~
+                      s(graceExperienced) +
+                      s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
+                      grace_seq + #(time, since first measurement of Grace)
+                      locsPerDay + #to account for UD size varying depending on number of daily locations
+                      s(species, bs="re"), #(random fac)
+                    data=modelDF_subsub[which(modelDF_subsub$Locomotion=="flying"),],
+                    na.action=na.fail)
+summary(distMod_fly)
+hist(residuals(distMod_fly))
+plot.gam(distMod_fly, select=1, shade=T)
+
 
 #________
 ## modelling directness of movement
 
-dirMod <- gam(log(motionVariance) ~
-                s(graceExperienced) +
-                s(UDwMeanLongitude,UDwMeanLatitude) + #(weighted coordinates from dalyUD)
-                #s(grace_seq) + #(time, since first measurement of Grace)
-                s(month_grace_layer, bs = "cc") + s(year_grace_layer) +
-                locsPerDay + #to account for UD size varying depending on number of daily locations
-                #Locomotion #(locomotory.mode)
-                s(species, bs="re"), #(random fac)
-              data=modelDF)
-summary(dirMod)
-hist(residuals(dirMod))
-plot.gam(dirMod, select=1, shade=T)
+hist(modelDF_sub$motionVariance, breaks="FD")
+varQuant <- quantile(modelDF_sub$motionVariance, seq(0,1,0.001))
+plot(varQuant)
+varQuant
+modelDF_subsub <- modelDF_sub[modelDF_sub$motionVariance <= varQuant["99.3%"],]
 
-dirMod_null <- gam(log(motionVariance) ~
-                     s(UDwMeanLongitude,UDwMeanLatitude) +
-                     s(month_grace_layer, bs = "cc") + s(year_grace_layer) +
-                     locsPerDay +
-                     #Locomotion
-                     s(species, bs="re"),
-                   data=modelDF)
-summary(dirMod)$dev.expl;summary(dirMod_null)$dev.expl
-AIC(dirMod);AIC(dirMod_null)
+dirMod_walk <- gam(log(motionVariance) ~
+                    s(graceExperienced) +
+                    s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
+                    grace_seq + #(time, since first measurement of Grace)
+                    locsPerDay + #to account for UD size varying depending on number of daily locations
+                    s(species, bs="re"), #(random fac)
+                  data=modelDF_subsub[which(modelDF_subsub$Locomotion=="walking"),],
+                  na.action=na.fail)
+summary(dirMod_walk)
+plot.gam(dirMod_walk, select=1, shade=T)
+par(mfrow=c(2,2))
+gam.check(dirMod_walk)
+
+
+dirMod_fly <- gam(log(motionVariance) ~
+                s(graceExperienced) +
+                s(UDwMeanLongitude,UDwMeanLatitude, by=grace_seq) + #(weighted coordinates from dailyUD)
+                grace_seq + #(time, since first measurement of Grace)
+                locsPerDay + #to account for UD size varying depending on number of daily locations
+                s(species, bs="re"), #(random fac)
+              data=modelDF_subsub[which(modelDF_subsub$Locomotion=="flying"),],
+              na.action=na.fail)
+summary(dirMod_fly)
+plot.gam(dirMod_fly, select=1, shade=T)
+par(mfrow=c(2,2))
+gam.check(dirMod_fly)
+
 
 #__________________
 # diagnostic plots
@@ -366,7 +424,7 @@ proj4string(projDf) <- "+proj=longlat +ellps=WGS84 +no_defs"
 
 projDf_sp <- split(projDf, projDf$species)
 predStack_sp <- stack(lapply(projDf_sp, function(sp){
-  predR <- rasterize(sp, lastGrace, field="UDsizeKm2", fun=mean)
+  predR <- rasterize(sp, grace4proj, field="UDsizeKm2", fun=mean)
   return(predR)
 }))
 levelplot(predStack_sp[[1:10]])
